@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: course-service
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/course_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:learnpulse}
+    password: ${DB_PASSWORD:learnpulse}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: false   # allows editing migration files during active development
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: course-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.courseservice.events.dto
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:learnpulse-default-jwt-secret-key-change-this-in-production-must-be-32plus-chars}
+    access-token-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:900000}      # 15 minutes
+    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000} # 7 days
+
+  admin:
+    email: ${ADMIN_EMAIL:admin@learnpulse.com}
+    password: ${ADMIN_PASSWORD:Admin@LearnPulse1}
+    full-name: ${ADMIN_NAME:Platform Admin}
+
+  s3:
+    bucket: ${S3_BUCKET:learnpulse}
+    endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
+    region: ${S3_REGION:us-east-1}
+
+  mailgun:
+    api-key: ${MAILGUN_API_KEY:}
+    domain: ${MAILGUN_DOMAIN:}
+    from: ${MAILGUN_FROM:noreply@learnpulse.com}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.courseservice: INFO
+    org.springframework.security: WARN

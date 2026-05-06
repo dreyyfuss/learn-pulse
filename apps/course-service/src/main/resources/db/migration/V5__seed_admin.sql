@@ -1,0 +1,1 @@
+-- Admin seeded programmatically via DataInitializer. See com.learnpulse.DataInitializer
