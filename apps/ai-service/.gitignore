@@ -1,0 +1,292 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dll
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pythonenv*
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Operating system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+.project
+.pydevproject
+.settings/
+*.iml
+
+# Project-specific files
+# Database files (if using local DB)
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+logs/
+*.log
+access.log
+error.log
+
+# PID files
+*.pid
+
+# Secret / sensitive data
+.secrets/
+secrets/
+config/secrets.yaml
+config/secrets.yml
+*.key
+*.pem
+*.crt
+*.p12
+credentials.json
+service-account.json
+
+# Vector stores (if using local vector DB)
+chroma_db/
+faiss_index/
+pinecone_backup/
+weaviate_data/
+qdrant_storage/
+*.index
+*.vector
+
+# Embeddings cache
+embeddings_cache/
+.cache/
+
+# Model files (if downloading models locally)
+models/
+*.pkl
+*.joblib
+*.h5
+*.pb
+*.onnx
+*.bin
+*.safetensors
+
+# Data files (if storing local datasets)
+data/
+datasets/
+*.parquet
+*.arrow
+
+# Output files
+outputs/
+results/
+generated/
+exports/
+
+# Environment variables backup
+.env.backup
+.env.local
+.env.*.local
+
+# Docker (if using Docker)
+.dockerignore
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Kubernetes (if using k8s)
+*.kubeconfig
+kubeconfig
+
+# Terraform (if using infra as code)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# LangChain specific
+langchain_cache/
+langchain_debug.log
+
+# FastAPI specific
+fastapi_cache/
+static/uploads/  # if you have file uploads
+
+# Testing
+test_results/
+test_reports/
+benchmark_results/
+
+# Documentation generated files
+site/
+docs/_build/
+docs/api/
+
+# Jupyter lab/notebook exports
+*.html
+*.pdf
+*.svg
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Ray
+ray_results/
+ray_logs/
+
+# DVC (Data Version Control)
+.dvc/
+.dvc.tmp
+
+# Pre-commit
+.pre-commit-config.local.yaml
+
+# VS Code (if using)
+.vscode/settings.json
+.vscode/launch.json
+
+# PyCharm (if using)
+.idea/inspectionProfiles/
+.idea/workspace.xml
+.idea/tasks.xml
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
