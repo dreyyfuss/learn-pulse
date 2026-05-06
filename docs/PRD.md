@@ -286,8 +286,8 @@ LearnPulse uses Apache Kafka as its single async backbone. The table below summa
 | `course.published` | Spring Boot | FastAPI AI Service | Instructor publishes a course |
 | `user.enrolled` | Spring Boot | Spring Boot (Email Consumer) | Learner enrols in a course |
 | `module.unlocked` | Spring Boot | Spring Boot (Email Consumer) | System unlocks a new module for a learner |
-| `course.completed` | Spring Boot | Spring Boot (Certificate Consumer) | Learner completes all lessons |
-| `certificate.generated` | Spring Boot (Certificate Consumer) | Spring Boot (Email Consumer) | Certificate PDF successfully uploaded to S3 |
+| `course.completed` | Spring Boot | Certificate Service (Spring Boot — separate app) | Learner completes all lessons |
+| `certificate.generated` | Certificate Service | LMS Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
 
 ---
 
@@ -374,7 +374,7 @@ The consumer embeds each lesson's content, stores the vectors in ChromaDB under 
 
 **Producer:** Spring Boot backend.
 
-**Consumer:** Spring Boot certificate generation consumer.
+**Consumer:** Certificate Service `CertificateConsumer` (separate Spring Boot application).
 
 **Event Payload:**
 ```json
@@ -431,11 +431,11 @@ If the transaction fails before COMMIT, the message is not acknowledged and Kafk
 
 ### 6.5 Topic: `certificate.generated`
 
-**Trigger:** Certificate consumer successfully uploads the PDF to S3 and commits the DB transaction.
+**Trigger:** Certificate Service consumer successfully uploads the PDF to S3 and commits the DB transaction.
 
-**Producer:** Spring Boot certificate generation consumer.
+**Producer:** Certificate Service `CertificateConsumer`.
 
-**Consumer:** Spring Boot email consumer → sends the certificate delivery email via Mailgun.
+**Consumer:** LMS Service email consumer → sends the certificate delivery email via Mailgun.
 
 **Event Payload:**
 ```json
@@ -562,60 +562,71 @@ Response: { reply, sourceLessons: [{ lessonId, title }] }
 │   Learner Mode (/learn/*)  │  Instructor Mode (/teach/*)        │
 │                Role Switcher in Navbar                           │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ REST / JSON
+                           │ REST / JSON  :80 / :443
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│               Spring Boot Backend (Java)                          │
-│  Auth | Courses | Enrolments | Progress | Analytics | Certs      │
+│                     Traefik API Gateway                           │
+│  /api/auth/*  /api/users/*  /api/admin/users/*                   │
+│      → User Service :8081                                         │
+│  /api/learner/certificates  /api/certificates/*                   │
+│      → Certificate Service :8082                                  │
+│  /api/* (all other)  → LMS Service :8080                         │
+│  / (catch-all)       → React SPA (static)                        │
 │                                                                   │
-│  Kafka Producers:                    REST calls:                  │
-│  course.published                    POST /ai/courses/{id}/chat   │
-│  user.enrolled                            │                       │
-│  module.unlocked                          │                       │
-│  course.completed                         │                       │
-│  certificate.generated                    │                       │
-└──────┬──────────────────────────────────  │  ────────────────────┘
-       │                                    │
-       ▼                                    ▼
-┌──────────────────────┐      ┌─────────────────────────────┐
-│    Apache Kafka       │      │   FastAPI AI Service         │
-│                       │      │   (Python / LangChain)       │
-│  course.published  ───┼──────►  aiokafka consumer           │
-│  user.enrolled        │      │  → embeds & indexes lessons  │
-│  module.unlocked      │      └──────────────┬──────────────┘
-│  course.completed     │                     │
-│  certificate.generated│      ┌──────────────▼──────────────┐
-└──────┬────────────────┘      │  ChromaDB / Pinecone         │
-       │                       │  (Vector Store)              │
-       ▼                       └─────────────────────────────┘
-┌──────────────────────┐
-│  Spring Boot          │
-│  Kafka Consumers      │
-│                       │
-│  ┌─────────────────┐  │
-│  │ Cert Consumer   │  │   → Thymeleaf + Flying Saucer (PDF)
-│  │ course.completed│  │   → S3 upload
-│  │ → cert.generated│  │   → INSERT certificates + idempotency_log
-│  └─────────────────┘  │
-│                       │
-│  ┌─────────────────┐  │
-│  │ Email Consumer  │  │   → Mailgun
-│  │ user.enrolled   │  │     welcome email
-│  │ module.unlocked │  │     module unlocked email
-│  │ cert.generated  │  │     certificate delivery email
-│  └─────────────────┘  │
-└──────────┬────────────┘
-           │
-┌──────────▼────────────┐       ┌─────────────────────────┐
-│     MySQL Database     │       │      AWS S3              │
-│                        │       │  lesson attachments      │
-│  users, courses,       │       │  certificate PDFs        │
-│  modules, lessons,     │       └─────────────────────────┘
-│  enrolments,           │
-│  lesson_progress,      │       ┌─────────────────────────┐
-│  certificates,         │       │   Mailgun                │
-│  idempotency_log       │       │   (Email Service)        │
-└────────────────────────┘       └─────────────────────────┘
+│  Rate-limit middleware on /api/auth/login and /api/auth/register  │
+│  (10 rpm, burst 5 — applied per client IP)                        │
+└────┬──────────────────────────┬───────────────────┬─────────────┘
+     │                          │                   │
+     ▼                          ▼                   ▼
+┌─────────────────┐   ┌──────────────────┐   ┌────────────────────┐
+│  User Service    │   │   LMS Service    │   │ Certificate Service │
+│  (Spring Boot)   │   │  (Spring Boot)   │   │  (Spring Boot)      │
+│                  │   │                  │   │                     │
+│  Auth | Users    │   │  Courses         │   │  CertificateConsumer│
+│  Admin user mgmt │   │  Enrolments      │   │  (group: cert-svc)  │
+│  JWT issuance    │   │  Progress        │   │                     │
+│                  │   │  Analytics       │   │  → Thymeleaf + PDF  │
+└────────┬─────────┘   │  EmailConsumer   │   │  → S3 upload        │
+         │             │                  │   │  → cert.generated   │
+         ▼             │  Kafka Producers:│   │    (outbox)         │
+┌─────────────────┐    │  course.published│   └──────────┬──────────┘
+│  User DB         │    │  user.enrolled   │              │
+│  (MySQL)         │    │  module.unlocked │              ▼
+│  users           │    │  course.completed│   ┌────────────────────┐
+│  user_roles      │    │                  │   │  Cert DB (MySQL)    │
+└─────────────────┘    │  REST calls:     │   │  certificates       │
+                        │  POST /ai/chat   │   │  idempotency_log    │
+                        └────────┬─────────┘   └────────────────────┘
+                                 │
+                        ┌────────▼─────────┐
+                        │   LMS DB (MySQL)  │
+                        │   courses         │
+                        │   modules         │
+                        │   lessons         │
+                        │   enrolments      │
+                        │   lesson_progress │
+                        │   module_unlocks  │
+                        │   idempotency_log │
+                        └──────────────────┘
+       │                              │
+       ▼ (Kafka)                      ▼ (REST — internal)
+┌────────────────────┐   ┌────────────────────────────┐
+│   Apache Kafka      │   │   FastAPI AI Service        │
+│                     │   │   (Python / LangChain)      │
+│  course.published ──┼───►  aiokafka consumer          │
+│  user.enrolled      │   │  → embeds & indexes lessons │
+│  module.unlocked    │   └────────────┬───────────────┘
+│  course.completed   │                │
+│  cert.generated     │   ┌────────────▼───────────────┐
+└─────────────────────┘   │  ChromaDB / Pinecone        │
+                           │  (Vector Store)             │
+                           └────────────────────────────┘
+
+                ┌──────────────────┐    ┌────────────────┐
+                │     AWS S3        │    │    Mailgun      │
+                │  cert PDFs        │    │  (Email)        │
+                │  lesson assets    │    └────────────────┘
+                └──────────────────┘
 ```
 
 ---
@@ -733,16 +744,19 @@ All API responses follow the envelope format:
 | Layer | Technology |
 |---|---|
 | **Frontend** | React (web) |
-| **Backend** | Java 17 + Spring Boot 3 |
-| **AI Microservice** | Python + FastAPI + LangChain |
-| **Database** | MySQL 8 |
+| **API Gateway** | Traefik v3 |
+| **LMS Service** | Java 17 + Spring Boot 3 (`apps/api`) |
+| **User Service** | Java 17 + Spring Boot 3 (`apps/user-service`) |
+| **Certificate Service** | Java 17 + Spring Boot 3 (`apps/cert-service`) |
+| **AI Microservice** | Python + FastAPI + LangChain (`apps/ai-service`) |
+| **Databases** | MySQL 8 — one database per service |
 | **Message Broker** | Apache Kafka |
 | **Blob Storage** | AWS S3 |
 | **Email Service** | Mailgun |
-| **PDF Generation** | Thymeleaf + Flying Saucer |
+| **PDF Generation** | Thymeleaf + Flying Saucer (in Certificate Service) |
 | **Vector Store** | ChromaDB (or Pinecone free tier) |
 | **LLM** | Cerebras Inference API (Llama 3.3 70B) via `langchain-cerebras` |
-| **Authentication** | JWT (Spring Security) |
+| **Authentication** | JWT (Spring Security, issued by User Service) |
 | **API Style** | RESTful JSON |
 
 ---

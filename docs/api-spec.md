@@ -1,56 +1,70 @@
 # LearnPulse — REST API Specification
 **Version:** 1.1
 **Companion to:** `PRD.md`
-**Base URL (dev):** `http://localhost` (all traffic enters via Nginx on port 80)
+**Base URL (dev):** `http://localhost` (all traffic enters via Traefik on port 80)
 **Auth:** `Authorization: Bearer <JWT>` on every endpoint marked Auth ≠ `Public`.
 
 ---
 
 ## 0. Infrastructure & Routing
 
-### 0.1 Nginx Reverse Proxy
+### 0.1 Traefik API Gateway
 
-Nginx is the single public entry point for all client traffic. It terminates TLS (staging/prod), serves the React SPA as static files, and proxies API calls to the appropriate backend service. **Clients never talk directly to Spring Boot or FastAPI.**
+Traefik is the single public entry point for all client traffic. It terminates TLS (staging/prod), serves the React SPA as static files (via a separate static file server container), and routes API calls to the correct backend service based on path prefix. **Clients never talk directly to any backend service or FastAPI.**
 
 ```
 Client (browser)
       │  :80 / :443
       ▼
-┌─────────────────────────────────────────────────────┐
-│                    Nginx                             │
-│                                                     │
-│  location /api/          → proxy_pass :8080         │
-│  location /actuator/     → proxy_pass :8080  (internal only) │
-│  location /              → serve React SPA (try_files) │
-└─────────────────────────────────────────────────────┘
-         │                        │
-         ▼                        ▼
-  Spring Boot :8080         React static files
-         │
-  (internally calls)
-         │
-         ▼
-  FastAPI :9000  (NOT exposed through Nginx — internal only)
+┌──────────────────────────────────────────────────────────────────┐
+│                         Traefik                                   │
+│                                                                   │
+│  /api/auth/*                     → User Service :8081             │
+│  /api/users/*                    → User Service :8081             │
+│  /api/admin/users/*              → User Service :8081             │
+│  /api/learner/certificates       → Certificate Service :8082      │
+│  /api/certificates/*             → Certificate Service :8082      │
+│  /api/* (all other)              → LMS Service :8080              │
+│  / (catch-all)                   → React SPA (static file server) │
+└──────────────────────────────────────────────────────────────────┘
+         │               │                │
+         ▼               ▼                ▼
+  User Svc :8081   LMS Svc :8080   Cert Svc :8082
+
+  FastAPI :9000  (NOT exposed through Traefik — internal only;
+                  called by LMS Service via Docker network)
 ```
 
-> The FastAPI AI service is **not** routed through Nginx. Spring Boot acts as the proxy (`POST /api/courses/{id}/ai/chat` → `POST /ai/courses/{id}/chat` on the internal network). This keeps the AI service entirely behind the backend security layer.
+> The FastAPI AI service is **not** routed through Traefik. The LMS Service acts as the proxy (`POST /api/courses/{id}/ai/chat` → `POST /ai/courses/{id}/chat` on the internal Docker network). This keeps the AI service entirely behind the backend security layer.
 
-**`infrastructure/nginx/nginx.conf` routing rules (dev):**
+**Traefik routing is configured via Docker labels on each service container.** Example labels for the User Service:
+```yaml
+labels:
+  - "traefik.http.routers.user-svc.rule=PathPrefix(`/api/auth`) || PathPrefix(`/api/users`) || PathPrefix(`/api/admin/users`)"
+  - "traefik.http.services.user-svc.loadbalancer.server.port=8081"
+  - "traefik.http.routers.user-svc.middlewares=auth-ratelimit"
+```
+
+**Routing rules summary (dev):**
 
 | Pattern | Backend | Notes |
 |---|---|---|
-| `/api/` | `http://api:8080` | All REST endpoints |
-| `/actuator/` | `http://api:8080` | Blocked from public internet in prod via `allow 10.0.0.0/8; deny all;` |
-| `/` (catch-all) | React build (`/usr/share/nginx/html`) | `try_files $uri $uri/ /index.html` for SPA deep links |
+| `/api/auth/*`, `/api/users/*`, `/api/admin/users/*` | `http://user-service:8081` | Auth, profile, admin user management |
+| `/api/learner/certificates`, `/api/certificates/*` | `http://cert-service:8082` | Certificate listing and download |
+| `/api/*` (all other) | `http://lms-service:8080` | Courses, enrolments, progress, analytics |
+| `/actuator/` | `http://lms-service:8080` | Blocked from public internet in prod via Traefik IP whitelist middleware |
+| `/` (catch-all) | Static file server (React build output) | `try_files` equivalent for SPA deep links |
 
-**Nginx rate limiting (applied at the proxy layer):**
-```nginx
-limit_req_zone $binary_remote_addr zone=auth:10m rate=10r/m;
-
-location /api/auth/login    { limit_req zone=auth burst=5 nodelay; proxy_pass ...; }
-location /api/auth/register { limit_req zone=auth burst=5 nodelay; proxy_pass ...; }
+**Traefik rate limiting (applied as middleware):**
+```yaml
+# Defined once; attached to the user-service auth router
+- "traefik.http.middlewares.auth-ratelimit.ratelimit.average=10"
+- "traefik.http.middlewares.auth-ratelimit.ratelimit.period=60s"
+- "traefik.http.middlewares.auth-ratelimit.ratelimit.burst=5"
 ```
-Exceeding the limit returns `429 Too Many Requests` before the request reaches Spring Boot.
+Exceeding the limit returns `429 Too Many Requests` before the request reaches the User Service.
+
+**Config files live under `infrastructure/traefik/`** — `traefik.dev.yml` (dynamic config, no TLS) and `traefik.prod.yml` (TLS via Let's Encrypt / self-signed).
 
 ---
 
@@ -116,7 +130,7 @@ On error, `data` is `null` and a structured error object is added:
 | `404 Not Found` | Resource missing or not visible to caller |
 | `409 Conflict` | Business rule violation (e.g. course locked, lesson out of order, duplicate enrolment) |
 | `422 Unprocessable Entity` | Well-formed but semantically invalid (e.g. publishing an empty course) |
-| `429 Too Many Requests` | Nginx rate limit exceeded (auth endpoints) |
+| `429 Too Many Requests` | Traefik rate limit exceeded (auth endpoints) |
 | `500 Internal Server Error` | Unhandled server error |
 
 ### 1.3 Error Codes (canonical)

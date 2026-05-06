@@ -1,7 +1,21 @@
 # LearnPulse — Entity Relationship Diagram & Database Schema
-**Version:** 1.0
+**Version:** 1.1
 **Companion to:** `PRD.md`
 **Engine:** MySQL 8 (InnoDB, `utf8mb4`)
+
+---
+
+## 0. Database Topology
+
+LearnPulse uses three independent MySQL databases — one per backend service. Cross-service references (e.g. `courses.instructor_id` pointing to a user) are **application-level references only**; they are not enforced by database foreign-key constraints across service boundaries.
+
+| Service | App path | Database name | Tables owned |
+|---|---|---|---|
+| **User Service** | `apps/user-service` | `learnpulse_users` | `users`, `user_roles` |
+| **LMS Service** | `apps/api` | `learnpulse_lms` | `courses`, `modules`, `lessons`, `lesson_attachments`, `enrolments`, `lesson_progress`, `module_unlocks`, `idempotency_log` (email consumer), `outbox_events` |
+| **Certificate Service** | `apps/cert-service` | `learnpulse_certs` | `certificates`, `idempotency_log` (certificate consumer) |
+
+> Each service runs its own Flyway migrations at startup against its own datasource. There are no shared tables.
 
 ---
 
@@ -269,24 +283,40 @@ Inserted in the **same DB transaction** as the certificate row — Layer 2 of ex
 
 1. `lesson_progress.status` only ever takes the value `COMPLETED`. There is no row when a lesson hasn't been started.
 2. `courses.is_locked = 1` ⇒ no `INSERT` / `UPDATE` / `DELETE` is allowed against `modules`, `lessons`, or `lesson_attachments` for that course. Enforced at the service layer; the API returns `409 Conflict`.
-3. A row in `certificates` MUST be inserted in the same transaction as the matching row in `idempotency_log`. The unique constraint on `(user_id, course_id)` plus the PK on `idempotency_log.event_id` gives exactly-once delivery even under Kafka redelivery.
+3. A row in `certificates` MUST be inserted in the same transaction as the matching row in the Certificate Service's `idempotency_log`. The unique constraint on `(user_id, course_id)` plus the PK on `idempotency_log.event_id` gives exactly-once delivery even under Kafka redelivery.
 4. `enrolments.started_at` is monotonic — once set, never cleared. The first `started_at` write to any enrolment for a course is also the trigger for `courses.is_locked = 1` and `courses.locked_at`.
 5. `enrolments.status = COMPLETED` ⇒ a `course.completed` Kafka event has been (or is about to be) published. The transition happens before the event is produced.
+6. Cross-service user references (`courses.instructor_id`, `enrolments.user_id`, `certificates.user_id`, etc.) are application-enforced only. The LMS Service and Certificate Service never issue DB-level FK constraints that cross into the User Service database.
 
 ---
 
 ## 4. Migration Plan (Flyway)
 
-Migrations live in `apps/api/src/main/resources/db/migration/`.
+Each service manages its own Flyway migrations independently.
+
+### User Service — `apps/user-service/src/main/resources/db/migration/`
 
 | Version | File | Purpose |
 |---|---|---|
 | V1 | `V1__create_users_and_roles.sql` | `users`, `user_roles` |
-| V2 | `V2__create_courses.sql` | `courses` |
-| V3 | `V3__create_modules_and_lessons.sql` | `modules`, `lessons`, `lesson_attachments` |
-| V4 | `V4__create_enrolments_and_progress.sql` | `enrolments`, `lesson_progress`, `module_unlocks` |
-| V5 | `V5__create_certificates.sql` | `certificates` (with composite UK), `idempotency_log` |
-| V6 | `V6__seed_admin.sql` | First admin account (per PRD §3) |
+| V2 | `V2__seed_admin.sql` | First admin account (reads from env vars at startup) |
+
+### LMS Service — `apps/api/src/main/resources/db/migration/`
+
+| Version | File | Purpose |
+|---|---|---|
+| V1 | `V1__create_courses.sql` | `courses` |
+| V2 | `V2__create_modules_and_lessons.sql` | `modules`, `lessons`, `lesson_attachments` |
+| V3 | `V3__create_enrolments_and_progress.sql` | `enrolments`, `lesson_progress`, `module_unlocks` |
+| V4 | `V4__create_idempotency_and_outbox.sql` | `idempotency_log` (email consumer), `outbox_events` |
+
+> `courses.instructor_id` references a user ID from the User Service. The FK is enforced at the application layer only — no DB-level constraint across service databases.
+
+### Certificate Service — `apps/cert-service/src/main/resources/db/migration/`
+
+| Version | File | Purpose |
+|---|---|---|
+| V1 | `V1__create_certificates.sql` | `certificates` (with composite UK `(user_id, course_id)`), `idempotency_log` (certificate consumer) |
 
 ---
 

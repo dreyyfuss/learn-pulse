@@ -7,15 +7,15 @@
 
 ## 1. Overview
 
-LearnPulse uses Kafka as its single async backbone. There are **five** topics. The Spring Boot service is the producer for all of them; consumers are split between Spring Boot (email + certificate) and the FastAPI AI service (indexing).
+LearnPulse uses Kafka as its single async backbone. There are **five** topics. The LMS Service and Certificate Service are the producers; consumers are split between the LMS Service (email), the Certificate Service (certificate generation), and the FastAPI AI service (indexing).
 
 | Topic | Producer | Consumer Group(s) | Purpose |
 |---|---|---|---|
 | `course.published` | Spring Boot | `ai-service-indexer` (FastAPI) | Build per-course RAG knowledge base |
 | `user.enrolled` | Spring Boot | `email-service` (Spring Boot) | Send welcome email |
 | `module.unlocked` | Spring Boot | `email-service` (Spring Boot) | Send "next module ready" email |
-| `course.completed` | Spring Boot | `certificate-service` (Spring Boot) | Generate PDF + persist certificate |
-| `certificate.generated` | Spring Boot | `email-service` (Spring Boot) | Send certificate delivery email |
+| `course.completed` | Spring Boot | `certificate-service` (Certificate Service — separate app) | Generate PDF + persist certificate |
+| `certificate.generated` | Certificate Service | `email-service` (LMS Service) | Send certificate delivery email |
 
 ---
 
@@ -157,7 +157,7 @@ Re-indexing is unnecessary because a course is locked once any learner starts it
 
 **Trigger:** A learner completes the final lesson of the final module. `enrolments.status` is set to `COMPLETED` in the same transaction.
 **Producer:** `ProgressService.completeLesson()` (Spring Boot).
-**Consumer:** Spring Boot `CertificateConsumer` in group `certificate-service`.
+**Consumer:** Certificate Service `CertificateConsumer` (separate Spring Boot application) in group `certificate-service`.
 
 **Payload:**
 ```json
@@ -224,8 +224,8 @@ Manual offset commit is performed only after the DB transaction commits successf
 
 ### 4.5 `certificate.generated`
 
-**Trigger:** Certificate consumer commits the DB transaction in §4.4.
-**Producer:** Spring Boot `CertificateConsumer`.
+**Trigger:** Certificate Service consumer commits the DB transaction in §4.4.
+**Producer:** Certificate Service `CertificateConsumer`.
 **Consumer:** Spring Boot `EmailConsumer` in group `email-service`.
 
 **Payload:**
@@ -252,7 +252,7 @@ Manual offset commit is performed only after the DB transaction commits successf
 ## 5. Producer Patterns
 
 ### 5.1 Transactional Outbox (Recommended)
-For events that must be emitted *iff* a DB write succeeds (`user.enrolled`, `module.unlocked`, `course.completed`, `certificate.generated`), use a transactional outbox:
+For events that must be emitted *iff* a DB write succeeds, use a transactional outbox. In this architecture the LMS Service owns `user.enrolled`, `module.unlocked`, and `course.completed`; the Certificate Service owns `certificate.generated`:
 
 1. Inside the same DB transaction, INSERT a row into `outbox_events(payload, topic, status='PENDING')`.
 2. A background `OutboxPublisher` (scheduled every 1 s) reads PENDING rows, publishes to Kafka, marks them `SENT`.
