@@ -1,0 +1,258 @@
+# LearnPulse — Delivery Plan
+**Version:** 1.0
+**Companion to:** `PRD.md`, `ERD.md`, `api-spec.md`, `kafka-events.md`
+**Owner:** Capstone team
+**Cadence:** Weekly demo at end of each phase
+
+---
+
+## Reading Guide
+
+- **Phases run sequentially**, but tasks within a phase can be parallelised across team members.
+- Each task lists: **Owner role** (Backend / Frontend / AI / DevOps / Full-stack), **estimate** (S = ≤ ½ day, M = 1–2 days, L = 3–5 days), **dependencies**, and an **acceptance check** the team can demo.
+- Suggested team split (6 people): 2 backend, 2 frontend, 1 AI/Python, 1 DevOps. Adjust labels if your split differs — the work doesn't change.
+- "DoD" (Definition of Done) at the end of each phase is the gate for moving on.
+
+### Suggested team labels
+- **BE-A / BE-B** — Spring Boot backend pair
+- **FE-A / FE-B** — React frontend pair
+- **AI** — FastAPI / LangChain / RAG
+- **DEVOPS** — Docker, Kafka, MySQL, Redis, Nginx, S3, CI
+
+---
+
+## Phase 0 — Foundations & Local Dev (Week 1)
+
+**Goal:** Every developer can clone the repo, run `make dev` (or equivalent), and hit a `/healthz` endpoint on each service. No business logic yet.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 0.1 | Finalise repo layout (`apps/api`, `apps/web`, `apps/ai-service`, `infrastructure/`, `docs/`). | DEVOPS | S | — | `tree -L 2` matches docs |
+| 0.2 | Author `docker-compose.dev.yml`: MySQL 8, Kafka (KRaft), Kafka UI, MailHog (local SMTP), MinIO (local S3), **Redis 7**, **Nginx**. | DEVOPS | M | 0.1 | `docker compose up` brings all services healthy |
+| 0.3 | Bootstrap Spring Boot 3 app: `pom.xml`, `application.yml`, `HealthController`. Wire Flyway. | BE-A | M | 0.1 | `GET /actuator/health` → 200 |
+| 0.4 | Bootstrap React (Vite) app: routing skeleton with `/learn` and `/teach` namespaces (PRD §5.7). | FE-A | M | 0.1 | Two empty dashboards render |
+| 0.5 | Bootstrap FastAPI service: `requirements.txt`, `app/main.py`, `/healthz`. | AI | S | 0.1 | `curl http://localhost:9000/healthz` → 200 |
+| 0.6 | `infrastructure/kafka/topics.sh` — create all five topics + DLQs per `kafka-events.md` §2. | DEVOPS | S | 0.2 | `kafka-topics --list` shows 10 topics |
+| 0.7 | GitHub Actions: lint + build for each app on PR. | DEVOPS | M | 0.3, 0.4, 0.5 | Failing PR is blocked |
+| 0.8 | Shared `.env.example` files for each app + root. | DEVOPS | S | 0.1 | New dev can copy, fill, and run |
+| 0.9 | Linear/Trello/GitHub Project board mirroring this plan. | Lead | S | — | Each task has an issue + owner |
+| 0.10 | `infrastructure/nginx/nginx.conf` — dev reverse proxy: `/api/*` → Spring Boot `:8080`, catch-all `/` → React SPA with `try_files`. Auth-endpoint `limit_req_zone` (10 rpm, burst 5) per `api-spec.md` §0.1. | DEVOPS | S | 0.2 | `curl http://localhost/api/actuator/health` → 200 via Nginx |
+| 0.11 | Wire Redis 7 in `docker-compose.dev.yml` (port 6379, no auth in dev). Verify connectivity with `redis-cli ping`. | DEVOPS | S | 0.2 | `PONG` response in local shell |
+
+**Phase 0 DoD:** Any team member can run the whole stack locally, hit health endpoints via Nginx on port 80, and `redis-cli ping` succeeds.
+
+---
+
+## Phase 1 — Auth & User Domain (Week 2)
+
+**Goal:** Users can register, log in, and the JWT/role machinery is in place. The frontend has a working login + protected-route guard.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 1.1 | Flyway migrations V1 (`users`, `user_roles`) per `ERD.md` §2.1–2.2. | BE-A | S | 0.3 | Tables created on startup |
+| 1.2 | JPA entities + repositories: `User`, `UserRole`. | BE-A | S | 1.1 | Unit test: save+load round-trip |
+| 1.3 | `POST /api/auth/register` (learner + instructor variants). BCrypt cost 12. | BE-A | M | 1.2 | Postman: register learner, register instructor → 201 |
+| 1.4 | `POST /api/auth/login`, `POST /api/auth/refresh`. JWT carries `sub`, `email`, `roles`. | BE-A | M | 1.3 | Login returns access + refresh tokens; bad password → 401 |
+| 1.5 | Spring Security filter chain: JWT auth filter, role-based `@PreAuthorize` annotations. | BE-A | M | 1.4 | Protected endpoint without token → 401; with token → 200 |
+| 1.6 | `GET /api/users/me`, `PATCH /api/users/me`. | BE-B | S | 1.5 | Demo updating own profile |
+| 1.7 | Admin endpoints: list users, promote, suspend, reinstate. Suspended users get 403 on next request (`api-spec.md` §3). | BE-B | M | 1.5 | Suspending mid-session blocks subsequent calls |
+| 1.8 | Seed first admin via `V6__seed_admin.sql` (reads from env vars at startup). | BE-B | S | 1.1 | Fresh DB has one admin |
+| 1.9 | Frontend: login page, register page (with "Register as Instructor" toggle). | FE-A | M | 1.4 | Manual flow works against local API |
+| 1.10 | Frontend: auth context + protected route HOC. Token stored in `httpOnly` cookie or memory + refresh flow. | FE-A | M | 1.9 | Page reload keeps user logged in until refresh expires |
+| 1.11 | Frontend: `<RoleGuard>` component for route protection, role switcher in navbar (visible only to dual-role users — PRD §5.7). | FE-B | M | 1.10 | Toggle navigates between `/learn/*` and `/teach/*` |
+| 1.12 | Tests: unit on `JwtService`, integration on `/api/auth/*`. | BE-A | S | 1.4 | CI green |
+| 1.13 | Wire `spring-boot-starter-data-redis` (Lettuce). Configure `RedisTemplate` bean. | BE-A | S | 0.11 | Integration test writes + reads a key |
+| 1.14 | JWT blacklist in Redis: on `PATCH /api/admin/users/{id}/suspend`, write `blacklist:user:<id>` key (TTL = 7 days). JWT auth filter checks Redis on every authenticated request; hit → 403. On reinstate, delete key. | BE-B | M | 1.13, 1.7 | Suspend user mid-session; next API call returns 403 within same JWT lifetime |
+
+**Phase 1 DoD:** End-to-end demo — register a learner, register an instructor, log in, switch modes, hit a protected admin endpoint that 403s for non-admins. Suspend a logged-in user and confirm the immediate 403.
+
+---
+
+## Phase 2 — Course Authoring (Week 3)
+
+**Goal:** Instructors can create courses, add modules and lessons, reorder them, and publish. Locking is wired up but not yet triggered (no learners have started anything).
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 2.1 | Flyway V2 (`courses`), V3 (`modules`, `lessons`, `lesson_attachments`). | BE-A | S | 1.1 | Tables exist with constraints from `ERD.md` |
+| 2.2 | Entities + repositories for course graph. Eager-load by ID for the read view; lazy elsewhere. | BE-A | M | 2.1 | Repository tests pass |
+| 2.3 | `CourseService.create()` — auto-generate enrolment code for `PRIVATE`. | BE-A | M | 2.2 | Private course → `enrolment_code` populated; public → null |
+| 2.4 | Course REST endpoints (`api-spec.md` §4): create, list, get, update, list own. | BE-A | M | 2.3 | Postman collection passes |
+| 2.5 | Module + Lesson REST endpoints (`api-spec.md` §5). Reorder via `orderIndex`. | BE-B | L | 2.4 | Cannot create lesson outside owned course; ordering preserved |
+| 2.6 | `CourseLockGuard` aspect — any write to a `is_locked=1` course → `409 COURSE_LOCKED`. | BE-B | M | 2.5 | Manually flip flag in DB; updates fail with structured error |
+| 2.7 | `POST /api/courses/{id}/publish` — validates ≥ 1 module + each module ≥ 1 lesson. Stub event emit for now. | BE-A | M | 2.5 | Empty course → 422; valid course → 200 |
+| 2.8 | Admin `DELETE /api/courses/{id}` — cascades. | BE-B | S | 2.4 | Delete course; modules/lessons gone |
+| 2.9 | Frontend: instructor "My Courses" page (`/teach/courses`). | FE-A | M | 2.4 | Lists owned courses with status |
+| 2.10 | Frontend: course editor (modules + lessons) — react-dnd or similar for reorder. | FE-B | L | 2.5 | Reorder persists on save |
+| 2.11 | Frontend: publish button + validation messages (422 surfaced inline). | FE-B | S | 2.7 | Empty course shows "needs at least one lesson" |
+| 2.12 | Public course list page (`/learn/browse`) — read-only for now. | FE-A | M | 2.4 | Only `PUBLISHED` courses appear; `enrolment_code` not in payload |
+| 2.13 | `@Cacheable` on `GET /api/courses` and `GET /api/courses/{id}` using Spring Cache → Redis (TTL 5 min). `@CacheEvict` on publish, update, delete. Key scheme per `api-spec.md` §0.2. | BE-A | M | 1.13, 2.4 | Second call hits Redis (verify via `MONITOR` or Spring Cache stats); publish evicts cache |
+
+**Phase 2 DoD:** Instructor can build a 3-module / 6-lesson course end-to-end and publish it. Learner can browse it but not yet enrol. Course list responses are cached in Redis.
+
+---
+
+## Phase 3 — Enrolment, Progression & Locking (Week 4)
+
+**Goal:** Learners enrol (public + private), start a course (which locks it), complete lessons sequentially, and unlock modules. No certificates yet.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 3.1 | Flyway V4 (`enrolments`, `lesson_progress`, `module_unlocks`). | BE-A | S | 2.1 | Tables + constraints in place |
+| 3.2 | Entities + repositories for enrolment domain. | BE-A | S | 3.1 | Repository tests pass |
+| 3.3 | `POST /api/enrolments` — public + private (with code) flows. Unique `(user_id, course_id)`. | BE-A | M | 3.2 | Duplicate enrolment → 409 |
+| 3.4 | `POST /api/enrolments/{id}/start` — sets `started_at`, locks the course (atomic), seeds `module_unlocks` for module 1. Idempotent. | BE-A | M | 3.3, 2.6 | Calling twice returns same `startedAt` |
+| 3.5 | `POST /api/lessons/{id}/complete` — full validation chain (`api-spec.md` §7): enrolment exists, module unlocked, prereqs done. Out-of-order → 409. | BE-B | L | 3.4 | Skipping a lesson returns `LESSON_OUT_OF_ORDER` |
+| 3.6 | Module-unlock side effect: when last lesson in a module completes, insert next `module_unlocks` row OR mark enrolment `COMPLETED` if final module. | BE-B | M | 3.5 | DB trace shows correct state transitions |
+| 3.7 | `GET /api/enrolments/{id}/progress` — full tree with `completed`/`unlocked` flags. | BE-B | M | 3.5 | Progress matches DB state |
+| 3.8 | `GET /api/learner/enrolments` — list summary. | BE-A | S | 3.3 | Lists with progress percentages |
+| 3.9 | Admin enrol/unenrol endpoints. | BE-A | S | 3.3 | Admin can manually enrol any user |
+| 3.10 | Frontend: course detail page with "Enrol" / "Request Access" CTA + private-code modal. | FE-A | M | 3.3 | Wrong code shows error in modal |
+| 3.11 | Frontend: learner dashboard (`/learn/courses`) with "Start Course" button. Confirmation dialog ("This will lock the course for editing"). | FE-A | M | 3.4 | Shows `startedAt` after click |
+| 3.12 | Frontend: course player UI — sequential lesson list, lock icons on future modules, "Mark complete" button. | FE-B | L | 3.5, 3.6, 3.7 | Cannot complete future lessons; UI unlocks next module instantly |
+| 3.13 | Frontend: instructor view becomes read-only for locked courses (banner explains why). | FE-B | S | 3.4 | Edit buttons hidden / disabled |
+
+**Phase 3 DoD:** A learner enrols, starts, and completes a multi-module course; instructor sees the course locked; analytics not yet wired.
+
+---
+
+## Phase 4 — Kafka Backbone & Email Pipeline (Week 5)
+
+**Goal:** Real Kafka events replace the stubs. Mailgun (local: MailHog) sends welcome and module-unlocked emails. Idempotency is proven by tests.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 4.1 | Kafka producer config in Spring (`acks=all`, `enable.idempotence=true`). | BE-A | S | 0.6 | Producer bean wired with idempotent settings |
+| 4.2 | Flyway V5 (`certificates`, `idempotency_log`). | BE-A | S | 3.1 | Tables created with composite UK |
+| 4.3 | Outbox table + `OutboxPublisher` scheduled job (`kafka-events.md` §5.1). | BE-A | M | 4.1 | DB row → Kafka topic within 1s |
+| 4.4 | Replace `course.published` stub with real event emission via outbox. Schema per `kafka-events.md` §4.1. | BE-A | S | 4.3, 2.7 | Publish a course; consumer logs the event |
+| 4.5 | Emit `user.enrolled` from enrolment service via outbox. | BE-A | S | 4.3, 3.3 | Enrolling produces event |
+| 4.6 | Emit `module.unlocked` and `course.completed` from progress service. Final-module rule: emit `course.completed`, NOT `module.unlocked`. | BE-B | M | 4.3, 3.6 | Final lesson → only `course.completed` |
+| 4.7 | `EmailConsumer` (Spring Boot, group `email-service`): handle `user.enrolled`, `module.unlocked`. Mailgun client (MailHog in dev). Idempotency-log check. | BE-B | L | 4.5, 4.6 | Welcome email visible in MailHog |
+| 4.8 | Integration test with `EmbeddedKafka`: duplicate `eventId` → single email sent. | BE-B | M | 4.7 | Test passes deterministically |
+| 4.9 | DLQ wiring + dashboard panel (Kafka UI is enough for the capstone). | DEVOPS | S | 4.7 | Manually poisoned message lands in `*.dlq` |
+
+**Phase 4 DoD:** Enrolling and completing modules triggers real emails through the Kafka pipeline; idempotency tests are green.
+
+---
+
+## Phase 5 — Certificate Generation (Week 6)
+
+**Goal:** Course completion produces a PDF certificate, stores it in S3 (MinIO locally), inserts the certificate row in the **same DB transaction** as `idempotency_log`, and emails the learner.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 5.1 | S3 client wrapper (`software.amazon.awssdk` v2). Configurable endpoint for MinIO in dev. | BE-A | S | 0.2 | Smoke test uploads a file to MinIO |
+| 5.2 | Thymeleaf certificate template + Flying Saucer renderer. Template includes: learner name, course, instructor, date, cert UUID, logo. | BE-B | M | 5.1 | Render & open a sample PDF |
+| 5.3 | `CertificateConsumer` (group `certificate-service`) consuming `course.completed`. Implements the exactly-once flow from `kafka-events.md` §4.4. | BE-A | L | 4.6, 5.2 | Single message → single row in `certificates` |
+| 5.4 | After successful commit, emit `certificate.generated` via outbox. | BE-A | S | 5.3, 4.3 | Topic receives event |
+| 5.5 | Extend `EmailConsumer` to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | MailHog shows email with download link |
+| 5.6 | `GET /api/learner/certificates` and `GET /api/certificates/{id}/download` (signed S3 URL, 5 min TTL). | BE-A | M | 5.3 | Click link → PDF downloads |
+| 5.7 | Concurrency test: two consumer threads receive the same `eventId` simultaneously → exactly one row in `certificates`, one row in `idempotency_log`. | BE-A | M | 5.3 | Test passes ≥ 100 iterations |
+| 5.8 | Frontend: "My Certificates" page (`/learn/certificates`). | FE-A | M | 5.6 | Lists and downloads |
+| 5.9 | Frontend: completion celebration screen at end of final lesson. Polls `/api/learner/certificates` until cert appears or shows `CERTIFICATE_NOT_READY` gracefully. | FE-B | M | 5.6 | Cert appears within 30s (PRD NFR §10) |
+
+**Phase 5 DoD:** Completing a course produces exactly one PDF, stored in S3, sent by email, downloadable from the dashboard. Concurrency test green.
+
+---
+
+## Phase 6 — AI Study Assistant (Week 7)
+
+**Goal:** A learner inside a started course can chat with a per-course assistant whose answers are grounded in that course's lessons.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 6.1 | FastAPI app structure: `app/main.py`, `app/kafka/consumer.py`, `app/rag/`, `app/api/`. | AI | S | 0.5 | Skeleton boots |
+| 6.2 | `aiokafka` consumer for `course.published`. Uses group `ai-service-indexer`. | AI | M | 4.4, 6.1 | Receiving a published course logs payload |
+| 6.3 | Embedding + chunking pipeline. Embedding model: `sentence-transformers/all-MiniLM-L6-v2` (local) OR Cerebras-hosted if available. | AI | M | 6.2 | Lessons are chunked + embedded |
+| 6.4 | ChromaDB integration: persistent local store at `./chroma_data`. Namespace by `course_id`. | AI | M | 6.3 | Inspecting Chroma shows N vectors per course |
+| 6.5 | `POST /ai/courses/{courseId}/chat` endpoint with `userId`, `message`, `chatHistory`. | AI | M | 6.4 | Returns reply + sources |
+| 6.6 | LangChain RAG chain wired to `langchain-cerebras` (`ChatCerebras`, model `llama-3.3-70b`). System prompt restricts answers to retrieved chunks (PRD §7.1). | AI | M | 6.5 | Out-of-scope question → polite refusal |
+| 6.7 | Service-to-service shared secret (`X-Service-Auth`) verified by FastAPI. | AI | S | 6.5 | Wrong secret → 401 |
+| 6.8 | Spring Boot proxy `POST /api/courses/{courseId}/ai/chat` — verifies enrolment + `started_at`, then forwards. | BE-A | M | 6.5, 3.4 | Non-enrolled user → 403 |
+| 6.9 | Frontend: chat panel inside the course player. Streaming optional. | FE-A | L | 6.8 | Learner asks "What is REST?" → grounded answer with sources |
+| 6.10 | Tests: deterministic smoke test that publishes a fixture course event and asserts a known question retrieves the right lesson. | AI | M | 6.6 | CI green |
+
+**Phase 6 DoD:** Live demo — instructor publishes a 3-lesson course, learner enrols, starts, asks 3 questions, AI cites the correct lessons.
+
+---
+
+## Phase 7 — Analytics & Polish (Week 8)
+
+**Goal:** Instructors and admins get actionable dashboards. UX rough edges sanded down. Project demo-ready.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 7.1 | `GET /api/instructor/courses/{id}/analytics` — aggregate + per-learner. SQL is read-heavy; add indexes per `ERD.md` §2.7. | BE-A | M | 3.7 | Numbers match a hand-counted fixture |
+| 7.2 | `GET /api/admin/analytics` — platform-wide. | BE-A | S | 7.1 | Admin dashboard populated |
+| 7.3 | Frontend: instructor analytics page — charts for completion rate, per-learner table. | FE-A | L | 7.1 | Sortable table, completion donut |
+| 7.4 | Frontend: admin dashboard — users / courses / enrolments tabs with the admin actions (promote, suspend, delete course, manual enrol). | FE-B | L | 1.7, 2.8, 3.9 | All admin flows clickable |
+| 7.5 | Empty states + error toasts across the app. Map all `error.code` values to friendly messages. | FE-A + FE-B | M | All FE | Triggering each error code shows readable copy |
+| 7.6 | Loading skeletons and 404 page. | FE-B | S | All FE | Slow 3G demo still feels OK |
+| 7.7 | Verify Nginx rate-limit from Phase 0.10 is effective in the staging deploy. Tune `burst` value if needed. | DEVOPS | S | 0.10, 8.4 | `wrk`/k6 hammering `/api/auth/login` → 429 responses from Nginx |
+| 7.8 | Logging + `traceId` propagation across Spring Boot ↔ Kafka ↔ FastAPI. | BE-A + AI | M | All BE | A single learner-action trace can be reconstructed |
+| 7.9 | README walkthrough + architecture diagram (re-export from PRD §8). | DEVOPS | S | — | Fresh dev follows README and demos in 15 min |
+| 7.10 | `@Cacheable` on analytics endpoints (`cache:analytics:instructor:<courseId>` and `cache:analytics:admin`, 60 s TTL). Evict on enrolment + completion events. | BE-A | S | 7.1, 1.13 | Analytics endpoint returns Redis-cached data on repeat call; stale after 60 s max |
+| 7.11 | AI reply cache in Redis (FastAPI + `redis.asyncio`): key = `sha256(courseId + normalise(message))`, TTL 1 hour. On cache hit, skip Cerebras call entirely. | AI | S | 6.6, 0.11 | Repeated identical question returns instantly; Cerebras RPM counter unchanged |
+
+**Phase 7 DoD:** Capstone-quality demo. Instructor and admin dashboards complete. Logs are searchable. Caching and rate-limiting validated. README onboards a new contributor.
+
+---
+
+## Phase 8 — Hardening & Submission (Week 9 — buffer)
+
+**Goal:** Bug bash, documentation, deployment dry-run.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 8.1 | Whole-team bug bash — 1.5 hours, structured: each tester gets a persona (admin, instructor, learner). | All | S | Phase 7 | Issues filed and triaged |
+| 8.2 | Performance check: p95 latency on key endpoints under 50 concurrent users (k6 script). Targets: PRD §10. | BE-B + DEVOPS | M | Phase 7 | Report committed to `docs/perf.md` |
+| 8.3 | Security check: OWASP top-10 sweep, JWT secret rotation, S3 bucket policy review, no enrolment codes in public payloads, Redis `requirepass` set in staging. | BE-A + DEVOPS | M | Phase 7 | Checklist in `docs/security.md` |
+| 8.4 | Production-style deploy dry-run: `infrastructure/nginx/nginx.prod.conf` with TLS (Let's Encrypt or self-signed for assessors). Confirm Nginx → Spring Boot → FastAPI chain works end-to-end. | DEVOPS | L | 8.3 | Live URL accessible to assessors |
+| 8.5 | Demo script + recording. | Lead + 1 | M | 8.4 | 10-minute video walks the user journey |
+| 8.6 | Capstone submission package: link to repo, deployed URL, demo video, this `plan.md` + PRD. | Lead | S | 8.5 | Submitted by deadline |
+
+**Phase 8 DoD:** Capstone delivered.
+
+---
+
+## Cross-Cutting Tracks
+
+These don't fit a single phase — assign owners and pull throughout the project.
+
+| Track | Owner | Notes |
+|---|---|---|
+| **Tests** | Whoever writes the code | Aim for: ≥ 80 % service-layer coverage on backend; one happy-path E2E per Phase DoD. |
+| **CI/CD** | DEVOPS | Lint → build → test → docker image. Branch protection on `main`. |
+| **Observability** | BE-A | Structured JSON logs, `traceId` per request, Kafka UI for topic depth. Redis `INFO stats` (keyspace hits/misses) tracked in the Phase 8 perf report. |
+| **Nginx config** | DEVOPS | Two configs: `nginx.conf` (dev, no TLS) and `nginx.prod.conf` (TLS, tighter `server_tokens off`, headers). Both live under `infrastructure/nginx/`. |
+| **Documentation** | All | Update relevant doc when a behaviour changes. PRs that change an API also touch `api-spec.md`. |
+
+---
+
+## Risk Register
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Kafka exactly-once subtleties | High | Land Phase 4 early; write the concurrency test (5.7) the day the consumer is born. |
+| Cerebras free-tier rate limits during demo | Medium | Redis AI reply cache (task 7.11) absorbs repeated questions. Fallback to a stock "I'm at capacity" message on 429 from Cerebras. |
+| Course locking corner cases (race between `start` and `update`) | Medium | Use a DB-level row lock in `start()`; cover with an integration test. |
+| S3 / MinIO config drift between dev and staging | Medium | One `S3Client` wrapper; only the endpoint differs via env var. |
+| Redis unavailability | Low | Spring Cache `@Cacheable` is non-critical — a `RedisCacheManager` error fallback (`allowInFlightCachePopulationOnMiss=true`) lets requests pass through to the DB. JWT blacklist failure is a security risk; document a circuit-breaker fallback that re-checks `users.status` in DB if Redis is unreachable. |
+| Nginx misconfiguration silently breaking SPA routing | Low | Add an E2E smoke test that hits a deep-link URL (e.g. `/learn/courses/1`) through Nginx and confirms 200 + React root HTML. |
+| Schema breaking changes after launch | Low (capstone scope) | Topic versioning convention in `kafka-events.md` §7. |
+
+---
+
+## Definition of Done — Project Level
+
+A feature is *done* when:
+1. Code merged to `main` via reviewed PR.
+2. Migrations applied automatically on startup.
+3. Tests cover the happy path **and** the documented error path.
+4. The relevant doc (`api-spec.md` / `kafka-events.md` / `ERD.md`) is updated in the same PR if behaviour changed.
+5. The user-visible flow is demoable in the local stack with no manual DB poking.
+
+---
+
+*End of Document*
