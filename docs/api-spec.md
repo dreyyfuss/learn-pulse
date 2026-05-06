@@ -24,18 +24,18 @@ Client (browser)
 │  /api/admin/users/*              → User Service :8081             │
 │  /api/learner/certificates       → Certificate Service :8082      │
 │  /api/certificates/*             → Certificate Service :8082      │
-│  /api/* (all other)              → LMS Service :8080              │
+│  /api/* (all other)              → Course Service :8080              │
 │  / (catch-all)                   → React SPA (static file server) │
 └──────────────────────────────────────────────────────────────────┘
          │               │                │
          ▼               ▼                ▼
-  User Svc :8081   LMS Svc :8080   Cert Svc :8082
+  User Svc :8081   Course Svc :8080   Cert Svc :8082
 
   FastAPI :9000  (NOT exposed through Traefik — internal only;
-                  called by LMS Service via Docker network)
+                  called by Course Service via Docker network)
 ```
 
-> The FastAPI AI service is **not** routed through Traefik. The LMS Service acts as the proxy (`POST /api/courses/{id}/ai/chat` → `POST /ai/courses/{id}/chat` on the internal Docker network). This keeps the AI service entirely behind the backend security layer.
+> The FastAPI AI service is **not** routed through Traefik. The Course Service acts as the proxy (`POST /api/courses/{id}/ai/chat` → `POST /ai/courses/{id}/chat` on the internal Docker network). This keeps the AI service entirely behind the backend security layer.
 
 **Traefik routing is configured via Docker labels on each service container.** Example labels for the User Service:
 ```yaml
@@ -51,8 +51,8 @@ labels:
 |---|---|---|
 | `/api/auth/*`, `/api/users/*`, `/api/admin/users/*` | `http://user-service:8081` | Auth, profile, admin user management |
 | `/api/learner/certificates`, `/api/certificates/*` | `http://cert-service:8082` | Certificate listing and download |
-| `/api/*` (all other) | `http://lms-service:8080` | Courses, enrolments, progress, analytics |
-| `/actuator/` | `http://lms-service:8080` | Blocked from public internet in prod via Traefik IP whitelist middleware |
+| `/api/*` (all other) | `http://course-service:8080` | Courses, enrolments, progress, analytics |
+| `/actuator/` | `http://course-service:8080` | Blocked from public internet in prod via Traefik IP whitelist middleware |
 | `/` (catch-all) | Static file server (React build output) | `try_files` equivalent for SPA deep links |
 
 **Traefik rate limiting (applied as middleware):**

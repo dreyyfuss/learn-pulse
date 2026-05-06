@@ -287,7 +287,7 @@ LearnPulse uses Apache Kafka as its single async backbone. The table below summa
 | `user.enrolled` | Spring Boot | Spring Boot (Email Consumer) | Learner enrols in a course |
 | `module.unlocked` | Spring Boot | Spring Boot (Email Consumer) | System unlocks a new module for a learner |
 | `course.completed` | Spring Boot | Certificate Service (Spring Boot — separate app) | Learner completes all lessons |
-| `certificate.generated` | Certificate Service | LMS Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
+| `certificate.generated` | Certificate Service | Course Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
 
 ---
 
@@ -435,7 +435,7 @@ If the transaction fails before COMMIT, the message is not acknowledged and Kafk
 
 **Producer:** Certificate Service `CertificateConsumer`.
 
-**Consumer:** LMS Service email consumer → sends the certificate delivery email via Mailgun.
+**Consumer:** Course Service email consumer → sends the certificate delivery email via Mailgun.
 
 **Event Payload:**
 ```json
@@ -570,7 +570,7 @@ Response: { reply, sourceLessons: [{ lessonId, title }] }
 │      → User Service :8081                                         │
 │  /api/learner/certificates  /api/certificates/*                   │
 │      → Certificate Service :8082                                  │
-│  /api/* (all other)  → LMS Service :8080                         │
+│  /api/* (all other)  → Course Service :8080                         │
 │  / (catch-all)       → React SPA (static)                        │
 │                                                                   │
 │  Rate-limit middleware on /api/auth/login and /api/auth/register  │
@@ -579,7 +579,7 @@ Response: { reply, sourceLessons: [{ lessonId, title }] }
      │                          │                   │
      ▼                          ▼                   ▼
 ┌─────────────────┐   ┌──────────────────┐   ┌────────────────────┐
-│  User Service    │   │   LMS Service    │   │ Certificate Service │
+│  User Service    │   │   Course Service    │   │ Certificate Service │
 │  (Spring Boot)   │   │  (Spring Boot)   │   │  (Spring Boot)      │
 │                  │   │                  │   │                     │
 │  Auth | Users    │   │  Courses         │   │  CertificateConsumer│
@@ -745,7 +745,7 @@ All API responses follow the envelope format:
 |---|---|
 | **Frontend** | React (web) |
 | **API Gateway** | Traefik v3 |
-| **LMS Service** | Java 17 + Spring Boot 3 (`apps/api`) |
+| **Course Service** | Java 17 + Spring Boot 3 (`apps/course-service`) |
 | **User Service** | Java 17 + Spring Boot 3 (`apps/user-service`) |
 | **Certificate Service** | Java 17 + Spring Boot 3 (`apps/cert-service`) |
 | **AI Microservice** | Python + FastAPI + LangChain (`apps/ai-service`) |

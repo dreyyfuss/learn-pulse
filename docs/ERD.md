@@ -12,7 +12,7 @@ LearnPulse uses three independent MySQL databases — one per backend service. C
 | Service | App path | Database name | Tables owned |
 |---|---|---|---|
 | **User Service** | `apps/user-service` | `learnpulse_users` | `users`, `user_roles` |
-| **LMS Service** | `apps/api` | `learnpulse_lms` | `courses`, `modules`, `lessons`, `lesson_attachments`, `enrolments`, `lesson_progress`, `module_unlocks`, `idempotency_log` (email consumer), `outbox_events` |
+| **Course Service** | `apps/course-service` | `course_service_db` | `courses`, `modules`, `lessons`, `lesson_attachments`, `enrolments`, `lesson_progress`, `module_unlocks`, `idempotency_log` (email consumer), `outbox_events` |
 | **Certificate Service** | `apps/cert-service` | `learnpulse_certs` | `certificates`, `idempotency_log` (certificate consumer) |
 
 > Each service runs its own Flyway migrations at startup against its own datasource. There are no shared tables.
@@ -286,7 +286,7 @@ Inserted in the **same DB transaction** as the certificate row — Layer 2 of ex
 3. A row in `certificates` MUST be inserted in the same transaction as the matching row in the Certificate Service's `idempotency_log`. The unique constraint on `(user_id, course_id)` plus the PK on `idempotency_log.event_id` gives exactly-once delivery even under Kafka redelivery.
 4. `enrolments.started_at` is monotonic — once set, never cleared. The first `started_at` write to any enrolment for a course is also the trigger for `courses.is_locked = 1` and `courses.locked_at`.
 5. `enrolments.status = COMPLETED` ⇒ a `course.completed` Kafka event has been (or is about to be) published. The transition happens before the event is produced.
-6. Cross-service user references (`courses.instructor_id`, `enrolments.user_id`, `certificates.user_id`, etc.) are application-enforced only. The LMS Service and Certificate Service never issue DB-level FK constraints that cross into the User Service database.
+6. Cross-service user references (`courses.instructor_id`, `enrolments.user_id`, `certificates.user_id`, etc.) are application-enforced only. The Course Service and Certificate Service never issue DB-level FK constraints that cross into the User Service database.
 
 ---
 
@@ -301,7 +301,7 @@ Each service manages its own Flyway migrations independently.
 | V1 | `V1__create_users_and_roles.sql` | `users`, `user_roles` |
 | V2 | `V2__seed_admin.sql` | First admin account (reads from env vars at startup) |
 
-### LMS Service — `apps/api/src/main/resources/db/migration/`
+### Course Service — `apps/course-service/src/main/resources/db/migration/`
 
 | Version | File | Purpose |
 |---|---|---|

@@ -27,16 +27,16 @@
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
-| 0.1 | Finalise repo layout (`apps/api`, `apps/user-service`, `apps/cert-service`, `apps/web`, `apps/ai-service`, `infrastructure/`, `docs/`). | DEVOPS | S | — | `tree -L 2` matches docs |
-| 0.2 | Author `docker-compose.dev.yml`: MySQL 8 (three databases: `learnpulse_users`, `learnpulse_lms`, `learnpulse_certs`), Kafka (KRaft), Kafka UI, MailHog (local SMTP), MinIO (local S3), **Redis 7**, **Traefik**. | DEVOPS | M | 0.1 | `docker compose up` brings all services healthy |
-| 0.3 | Bootstrap LMS Spring Boot 3 app (`apps/api`): `pom.xml`, `application.yml`, `HealthController`. Wire Flyway against `learnpulse_lms`. | BE-A | M | 0.1 | `GET /actuator/health` → 200 |
+| 0.1 | Finalise repo layout (`apps/course-service`, `apps/user-service`, `apps/cert-service`, `apps/web`, `apps/ai-service`, `infrastructure/`, `docs/`). | DEVOPS | S | — | `tree -L 2` matches docs |
+| 0.2 | Author `docker-compose.dev.yml`: MySQL 8 (three databases: `learnpulse_users`, `course_service_db`, `learnpulse_certs`), Kafka (KRaft), Kafka UI, MailHog (local SMTP), MinIO (local S3), **Redis 7**, **Traefik**. | DEVOPS | M | 0.1 | `docker compose up` brings all services healthy |
+| 0.3 | Bootstrap LMS Spring Boot 3 app (`apps/course-service`): `pom.xml`, `application.yml`, `HealthController`. Wire Flyway against `course_service_db`. | BE-A | M | 0.1 | `GET /actuator/health` → 200 |
 | 0.4 | Bootstrap React (Vite) app: routing skeleton with `/learn` and `/teach` namespaces (PRD §5.7). | FE-A | M | 0.1 | Two empty dashboards render |
 | 0.5 | Bootstrap FastAPI service: `requirements.txt`, `app/main.py`, `/healthz`. | AI | S | 0.1 | `curl http://localhost:9000/healthz` → 200 |
 | 0.6 | `infrastructure/kafka/topics.sh` — create all five topics + DLQs per `kafka-events.md` §2. | DEVOPS | S | 0.2 | `kafka-topics --list` shows 10 topics |
 | 0.7 | GitHub Actions: lint + build for each app on PR. | DEVOPS | M | 0.3, 0.4, 0.5, 0.12, 0.13 | Failing PR is blocked |
 | 0.8 | Shared `.env.example` files for each app + root. | DEVOPS | S | 0.1 | New dev can copy, fill, and run |
 | 0.9 | Linear/Trello/GitHub Project board mirroring this plan. | Lead | S | — | Each task has an issue + owner |
-| 0.10 | `infrastructure/traefik/traefik.dev.yml` + Docker-label routing on each service container per `api-spec.md` §0.1: `/api/auth/*` → User Service `:8081`, `/api/learner/certificates` + `/api/certificates/*` → Cert Service `:8082`, `/api/*` → LMS Service `:8080`, `/` → React SPA. Auth-endpoint rate-limit middleware (10 rpm, burst 5). | DEVOPS | M | 0.2 | `curl http://localhost/api/actuator/health` → 200 via Traefik; `curl http://localhost/api/auth/login` with 11 rapid requests returns at least one `429` |
+| 0.10 | `infrastructure/traefik/traefik.dev.yml` + Docker-label routing on each service container per `api-spec.md` §0.1: `/api/auth/*` → User Service `:8081`, `/api/learner/certificates` + `/api/certificates/*` → Cert Service `:8082`, `/api/*` → Course Service `:8080`, `/` → React SPA. Auth-endpoint rate-limit middleware (10 rpm, burst 5). | DEVOPS | M | 0.2 | `curl http://localhost/api/actuator/health` → 200 via Traefik; `curl http://localhost/api/auth/login` with 11 rapid requests returns at least one `429` |
 | 0.11 | Wire Redis 7 in `docker-compose.dev.yml` (port 6379, no auth in dev). Verify connectivity with `redis-cli ping`. | DEVOPS | S | 0.2 | `PONG` response in local shell |
 | 0.12 | Bootstrap User Service Spring Boot 3 app (`apps/user-service`): `pom.xml`, `application.yml` (datasource `learnpulse_users`), `HealthController`. Wire Flyway. | BE-A | M | 0.1 | `GET /actuator/health` → 200 on `:8081` |
 | 0.13 | Bootstrap Certificate Service Spring Boot 3 app (`apps/cert-service`): `pom.xml`, `application.yml` (datasource `learnpulse_certs`, S3 config, Kafka consumer config), `HealthController`. Wire Flyway. | BE-B | M | 0.1 | `GET /actuator/health` → 200 on `:8082` |
@@ -57,7 +57,7 @@
 | 1.2 | JPA entities + repositories: `User`, `UserRole`. | BE-A | S | 1.1 | Unit test: save+load round-trip |
 | 1.3 | `POST /api/auth/register` (learner + instructor variants). BCrypt cost 12. | BE-A | M | 1.2 | Postman: register learner, register instructor → 201 |
 | 1.4 | `POST /api/auth/login`, `POST /api/auth/refresh`. JWT carries `sub`, `email`, `roles`. | BE-A | M | 1.3 | Login returns access + refresh tokens; bad password → 401 |
-| 1.5 | Spring Security filter chain: JWT auth filter, role-based `@PreAuthorize` annotations. Copy JWT verification config to LMS Service and Certificate Service as a shared library or replicated config so all three services can validate tokens. | BE-A | M | 1.4 | Protected endpoint without token → 401; with token → 200 on all three services |
+| 1.5 | Spring Security filter chain: JWT auth filter, role-based `@PreAuthorize` annotations. Copy JWT verification config to Course Service and Certificate Service as a shared library or replicated config so all three services can validate tokens. | BE-A | M | 1.4 | Protected endpoint without token → 401; with token → 200 on all three services |
 | 1.6 | `GET /api/users/me`, `PATCH /api/users/me`. | BE-B | S | 1.5 | Demo updating own profile |
 | 1.7 | Admin endpoints: list users, promote, suspend, reinstate. Suspended users get 403 on next request (`api-spec.md` §3). | BE-B | M | 1.5 | Suspending mid-session blocks subsequent calls |
 | 1.8 | Seed first admin via `V2__seed_admin.sql` in the User Service (reads from env vars at startup). | BE-B | S | 1.1 | Fresh DB has one admin |
@@ -74,13 +74,13 @@
 
 ## Phase 2 — Course Authoring (Week 3)
 
-> **Service context:** All backend tasks in this phase belong to the **LMS Service** (`apps/api`) and its database (`learnpulse_lms`).
+> **Service context:** All backend tasks in this phase belong to the **Course Service** (`apps/course-service`) and its database (`course_service_db`).
 
 **Goal:** Instructors can create courses, add modules and lessons, reorder them, and publish. Locking is wired up but not yet triggered (no learners have started anything).
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
-| 2.1 | Flyway V1 (`courses`), V2 (`modules`, `lessons`, `lesson_attachments`) in LMS Service. | BE-A | S | 0.3 | Tables exist with constraints from `ERD.md` |
+| 2.1 | Flyway V1 (`courses`), V2 (`modules`, `lessons`, `lesson_attachments`) in Course Service. | BE-A | S | 0.3 | Tables exist with constraints from `ERD.md` |
 | 2.2 | Entities + repositories for course graph. Eager-load by ID for the read view; lazy elsewhere. | BE-A | M | 2.1 | Repository tests pass |
 | 2.3 | `CourseService.create()` — auto-generate enrolment code for `PRIVATE`. | BE-A | M | 2.2 | Private course → `enrolment_code` populated; public → null |
 | 2.4 | Course REST endpoints (`api-spec.md` §4): create, list, get, update, list own. | BE-A | M | 2.3 | Postman collection passes |
@@ -104,7 +104,7 @@
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
-| 3.1 | Flyway V3 (`enrolments`, `lesson_progress`, `module_unlocks`) in LMS Service. | BE-A | S | 2.1 | Tables + constraints in place |
+| 3.1 | Flyway V3 (`enrolments`, `lesson_progress`, `module_unlocks`) in Course Service. | BE-A | S | 2.1 | Tables + constraints in place |
 | 3.2 | Entities + repositories for enrolment domain. | BE-A | S | 3.1 | Repository tests pass |
 | 3.3 | `POST /api/enrolments` — public + private (with code) flows. Unique `(user_id, course_id)`. | BE-A | M | 3.2 | Duplicate enrolment → 409 |
 | 3.4 | `POST /api/enrolments/{id}/start` — sets `started_at`, locks the course (atomic), seeds `module_unlocks` for module 1. Idempotent. | BE-A | M | 3.3, 2.6 | Calling twice returns same `startedAt` |
@@ -129,7 +129,7 @@
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
 | 4.1 | Kafka producer config in Spring (`acks=all`, `enable.idempotence=true`). | BE-A | S | 0.6 | Producer bean wired with idempotent settings |
-| 4.2 | Flyway V4 (`idempotency_log`, `outbox_events`) in LMS Service. | BE-A | S | 3.1 | Tables created |
+| 4.2 | Flyway V4 (`idempotency_log`, `outbox_events`) in Course Service. | BE-A | S | 3.1 | Tables created |
 | 4.3 | Outbox table + `OutboxPublisher` scheduled job (`kafka-events.md` §5.1). | BE-A | M | 4.1 | DB row → Kafka topic within 1s |
 | 4.4 | Replace `course.published` stub with real event emission via outbox. Schema per `kafka-events.md` §4.1. | BE-A | S | 4.3, 2.7 | Publish a course; consumer logs the event |
 | 4.5 | Emit `user.enrolled` from enrolment service via outbox. | BE-A | S | 4.3, 3.3 | Enrolling produces event |
@@ -144,17 +144,17 @@
 
 ## Phase 5 — Certificate Generation (Week 6)
 
-> **Service context:** This phase builds the **Certificate Service** (`apps/cert-service`) — a standalone Spring Boot application with its own database (`learnpulse_certs`). It consumes `course.completed` from Kafka, generates the PDF, and exposes the certificate endpoints. The Email Consumer that sends the delivery email remains in the LMS Service.
+> **Service context:** This phase builds the **Certificate Service** (`apps/cert-service`) — a standalone Spring Boot application with its own database (`learnpulse_certs`). It consumes `course.completed` from Kafka, generates the PDF, and exposes the certificate endpoints. The Email Consumer that sends the delivery email remains in the Course Service.
 
 **Goal:** Course completion produces a PDF certificate, stores it in S3 (MinIO locally), inserts the certificate row in the **same DB transaction** as `idempotency_log` (in the Certificate Service's database), and emails the learner.
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
 | 5.1 | S3 client wrapper (`software.amazon.awssdk` v2) in Certificate Service. Configurable endpoint for MinIO in dev. | BE-A | S | 0.13 | Smoke test uploads a file to MinIO |
-| 5.2 | Thymeleaf certificate template + Flying Saucer renderer in Certificate Service. Template includes: learner name, course, instructor, date, cert UUID, logo. To get learner and course details, the Certificate Service calls the User Service and LMS Service REST APIs using the `course.completed` event's `userId` and `courseId`. | BE-B | M | 5.1 | Render & open a sample PDF |
+| 5.2 | Thymeleaf certificate template + Flying Saucer renderer in Certificate Service. Template includes: learner name, course, instructor, date, cert UUID, logo. To get learner and course details, the Certificate Service calls the User Service and Course Service REST APIs using the `course.completed` event's `userId` and `courseId`. | BE-B | M | 5.1 | Render & open a sample PDF |
 | 5.3 | `CertificateConsumer` in Certificate Service (group `certificate-service`) consuming `course.completed`. Implements the exactly-once flow from `kafka-events.md` §4.4. Flyway V1 (`certificates`, `idempotency_log`) runs on Certificate Service startup. | BE-A | L | 4.6, 5.2 | Single message → single row in `certificates` in `learnpulse_certs` |
 | 5.4 | After successful commit in Certificate Service, emit `certificate.generated` via outbox. | BE-A | S | 5.3, 4.3 | Topic receives event |
-| 5.5 | Extend `EmailConsumer` (LMS Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | MailHog shows email with download link |
+| 5.5 | Extend `EmailConsumer` (Course Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | MailHog shows email with download link |
 | 5.6 | `GET /api/learner/certificates` and `GET /api/certificates/{id}/download` (signed S3 URL, 5 min TTL) — served by Certificate Service; Traefik routes these paths to it automatically. | BE-A | M | 5.3 | Click link → PDF downloads |
 | 5.7 | Concurrency test: two consumer threads receive the same `eventId` simultaneously → exactly one row in `certificates`, one row in `idempotency_log` (Certificate Service DB). | BE-A | M | 5.3 | Test passes ≥ 100 iterations |
 | 5.8 | Frontend: "My Certificates" page (`/learn/certificates`). | FE-A | M | 5.6 | Lists and downloads |
