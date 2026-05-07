@@ -1,0 +1,60 @@
+## Traefik dynamic configuration — dev (no TLS)
+## Loaded via --providers.file.filename in docker-compose.dev.yml.
+## Service containers add their own routers/services via Docker labels;
+## this file owns middlewares + routes for services not yet in compose.
+
+http:
+
+  # ── Middlewares ───────────────────────────────────────────────
+  middlewares:
+
+    auth-ratelimit:
+      rateLimit:
+        average: 10      # sustained rate: 10 req/min
+        period: 60s
+        burst: 5         # token-bucket capacity above the sustained rate
+
+    strip-api:
+      stripPrefix:
+        prefixes:
+          - /api
+
+  # ── Routers (services not yet wired as compose containers) ───
+  routers:
+
+    user-svc:
+      rule: "PathPrefix(`/api/auth`) || PathPrefix(`/api/users`) || PathPrefix(`/api/admin/users`)"
+      entryPoints: [web]
+      middlewares: [auth-ratelimit]
+      service: user-svc
+      priority: 20
+
+    cert-svc:
+      rule: "PathPrefix(`/api/learner/certificates`) || PathPrefix(`/api/certificates`)"
+      entryPoints: [web]
+      service: cert-svc
+      priority: 30
+
+    web-svc:
+      rule: "PathPrefix(`/`)"
+      entryPoints: [web]
+      service: web-svc
+      priority: 1
+
+  # ── Services ─────────────────────────────────────────────────
+  services:
+
+    user-svc:
+      loadBalancer:
+        servers:
+          - url: "http://user-service:8080"
+
+    cert-svc:
+      loadBalancer:
+        servers:
+          - url: "http://cert-service:8080"
+
+    web-svc:
+      loadBalancer:
+        servers:
+          - url: "http://web:80"

@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/httpRequests/
+
+# Environment variables (all services)
+.env
+.env.local
+.env.*.local
+
+# Docker overrides
+docker-compose.override.yml
