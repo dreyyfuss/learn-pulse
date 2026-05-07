@@ -195,10 +195,18 @@ services:
       start_period: 120s
     labels:
       traefik.enable: "true"
-      traefik.http.routers.user-svc.rule: "PathPrefix(`/api/users`) || PathPrefix(`/api/auth`)"
-      traefik.http.routers.user-svc.entrypoints: web
-      traefik.http.routers.user-svc.priority: "20"
-      traefik.http.routers.user-svc.middlewares: strip-api@file
+      # Public auth routes — rate-limited but NO ForwardAuth (login/register/validate are public)
+      traefik.http.routers.user-svc-public.rule: "PathPrefix(`/api/auth`)"
+      traefik.http.routers.user-svc-public.entrypoints: web
+      traefik.http.routers.user-svc-public.priority: "30"
+      traefik.http.routers.user-svc-public.middlewares: auth-ratelimit@file
+      traefik.http.routers.user-svc-public.service: user-svc
+      # Protected user/admin routes — ForwardAuth validates the JWT first
+      traefik.http.routers.user-svc-protected.rule: "PathPrefix(`/api/users`) || PathPrefix(`/api/admin/users`)"
+      traefik.http.routers.user-svc-protected.entrypoints: web
+      traefik.http.routers.user-svc-protected.priority: "25"
+      traefik.http.routers.user-svc-protected.middlewares: jwt-auth@file
+      traefik.http.routers.user-svc-protected.service: user-svc
       traefik.http.services.user-svc.loadbalancer.server.port: "8081"
     restart: unless-stopped
 
@@ -228,10 +236,10 @@ services:
       start_period: 120s
     labels:
       traefik.enable: "true"
-      traefik.http.routers.cert-svc.rule: "PathPrefix(`/api/certificates`)"
+      traefik.http.routers.cert-svc.rule: "PathPrefix(`/api/learner/certificates`) || PathPrefix(`/api/certificates`)"
       traefik.http.routers.cert-svc.entrypoints: web
-      traefik.http.routers.cert-svc.priority: "20"
-      traefik.http.routers.cert-svc.middlewares: strip-api@file
+      traefik.http.routers.cert-svc.priority: "25"
+      traefik.http.routers.cert-svc.middlewares: jwt-auth@file
       traefik.http.services.cert-svc.loadbalancer.server.port: "8082"
     restart: unless-stopped
 
@@ -261,11 +269,11 @@ services:
       start_period: 120s
     labels:
       traefik.enable: "true"
-      # catch-all for /api/* — lower priority than user-svc and cert-svc (file provider)
+      # catch-all for /api/* — lower priority than user-svc and cert-svc
       traefik.http.routers.course-svc.rule: "PathPrefix(`/api`)"
       traefik.http.routers.course-svc.entrypoints: web
       traefik.http.routers.course-svc.priority: "10"
-      traefik.http.routers.course-svc.middlewares: strip-api@file
+      traefik.http.routers.course-svc.middlewares: jwt-auth@file
       traefik.http.services.course-svc.loadbalancer.server.port: "8080"
     restart: unless-stopped
 
