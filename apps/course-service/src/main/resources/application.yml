@@ -41,25 +41,10 @@ spring:
         spring.json.trusted.packages: com.courseservice.events.dto
 
 app:
-  jwt:
-    secret: ${JWT_SECRET:learnpulse-default-jwt-secret-key-change-this-in-production-must-be-32plus-chars}
-    access-token-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:900000}      # 15 minutes
-    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000} # 7 days
-
-  admin:
-    email: ${ADMIN_EMAIL:admin@learnpulse.com}
-    password: ${ADMIN_PASSWORD:Admin@LearnPulse1}
-    full-name: ${ADMIN_NAME:Platform Admin}
-
   s3:
     bucket: ${S3_BUCKET:learnpulse}
     endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
     region: ${S3_REGION:us-east-1}
-
-  mailgun:
-    api-key: ${MAILGUN_API_KEY:}
-    domain: ${MAILGUN_DOMAIN:}
-    from: ${MAILGUN_FROM:noreply@learnpulse.com}
 
 server:
   port: 8080
