@@ -1,0 +1,2 @@
+-- Phase 1 baseline — learnpulse_users schema placeholder.
+-- User, role, and auth tables will be added in subsequent migrations.

@@ -175,6 +175,33 @@ services:
     restart: on-failure
 
   # ── Application Services ─────────────────────────────────────
+  user-service:
+    build:
+      context: ./apps/user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    networks:
+      - learnpulse
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.user-svc.rule: "PathPrefix(`/api/users`) || PathPrefix(`/api/auth`)"
+      traefik.http.routers.user-svc.entrypoints: web
+      traefik.http.routers.user-svc.priority: "20"
+      traefik.http.routers.user-svc.middlewares: strip-api@file
+      traefik.http.services.user-svc.loadbalancer.server.port: "8081"
+    restart: unless-stopped
+
   course-service:
     build:
       context: ./apps/course-service
