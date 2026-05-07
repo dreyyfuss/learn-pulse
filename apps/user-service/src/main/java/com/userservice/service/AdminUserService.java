@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final BlacklistService blacklistService;
 
     @Transactional(readOnly = true)
     public Page<UserAdminView> listUsers(Role role, UserStatus status, String q, Pageable pageable) {
@@ -46,21 +47,20 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserAdminView suspend(UUID userId) {
-        User user = findOrThrow(userId);
-        user.setStatus(UserStatus.SUSPENDED);
-        userRepository.save(user);
-        // Redis blacklist (blacklist:user:<userId>, TTL 7 days) will be written in task 1.14
-        // once spring-boot-starter-data-redis is wired (task 1.13).
-        return toAdminView(user);
-    }
-
-    @Transactional
     public UserAdminView reinstate(UUID userId) {
         User user = findOrThrow(userId);
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
-        // Redis blacklist key deletion will be added in task 1.14.
+        blacklistService.remove(userId);
+        return toAdminView(user);
+    }
+
+    @Transactional
+    public UserAdminView suspend(UUID userId) {
+        User user = findOrThrow(userId);
+        user.setStatus(UserStatus.SUSPENDED);
+        userRepository.save(user);
+        blacklistService.add(userId);
         return toAdminView(user);
     }
 

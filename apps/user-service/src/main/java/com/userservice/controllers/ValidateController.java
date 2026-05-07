@@ -2,6 +2,7 @@ package com.userservice.controllers;
 
 import com.userservice.enums.Role;
 import com.userservice.exception.AppException;
+import com.userservice.service.BlacklistService;
 import com.userservice.service.JwtService;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class ValidateController {
 
     private final JwtService jwtService;
+    private final BlacklistService blacklistService;
 
     @GetMapping("/validate")
     public ResponseEntity<Void> validate(
@@ -45,6 +47,11 @@ public class ValidateController {
             }
 
             UUID userId  = jwtService.extractUserId(token);
+
+            if (blacklistService.isBlacklisted(userId)) {
+                throw new AppException(HttpStatus.FORBIDDEN, "USER_SUSPENDED", "User account is suspended.");
+            }
+
             String email = jwtService.extractEmail(token);
             Set<Role> roles = jwtService.extractRoles(token);
             String rolesHeader = roles.stream().map(Role::name).collect(Collectors.joining(","));
