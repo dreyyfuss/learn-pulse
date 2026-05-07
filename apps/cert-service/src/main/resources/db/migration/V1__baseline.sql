@@ -1,0 +1,2 @@
+-- Phase 1 baseline — learnpulse_certs schema placeholder.
+-- Certificate tables will be added in subsequent migrations.

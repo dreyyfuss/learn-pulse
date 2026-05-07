@@ -202,6 +202,39 @@ services:
       traefik.http.services.user-svc.loadbalancer.server.port: "8081"
     restart: unless-stopped
 
+  cert-service:
+    build:
+      context: ./apps/cert-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    networks:
+      - learnpulse
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.cert-svc.rule: "PathPrefix(`/api/certificates`)"
+      traefik.http.routers.cert-svc.entrypoints: web
+      traefik.http.routers.cert-svc.priority: "20"
+      traefik.http.routers.cert-svc.middlewares: strip-api@file
+      traefik.http.services.cert-svc.loadbalancer.server.port: "8082"
+    restart: unless-stopped
+
   course-service:
     build:
       context: ./apps/course-service
