@@ -1,5 +1,6 @@
 package com.certservice.config;
 
+import com.certservice.security.HeaderAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -8,9 +9,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-// JWT validation is handled by the API gateway. X-User-Id / X-User-Roles headers
-// are injected by the gateway; a header-reading filter will be wired here later.
+// No JWT validation in this service. Traefik's ForwardAuth calls User Service
+// /api/auth/validate, then injects X-User-Id / X-User-Email / X-User-Roles headers.
+// HeaderAuthFilter reads those headers to populate the SecurityContext.
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -21,6 +24,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(new HeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
