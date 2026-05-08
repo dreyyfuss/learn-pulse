@@ -15,6 +15,9 @@ import com.courseservice.exception.ResourceNotFoundException;
 import com.courseservice.models.Course;
 import com.courseservice.repositories.CourseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +53,8 @@ public class CourseService {
         return new CreateCourseResponse(course.getId(), course.getEnrolmentCode());
     }
 
+    @Cacheable(cacheNames = "courses:list",
+               key = "T(java.util.Objects).hash(#q, #category, #visibility, #pageable.pageNumber, #pageable.pageSize)")
     @Transactional(readOnly = true)
     public PageResponse<CourseSummaryResponse> list(String q, String category, CourseVisibility visibility, Pageable pageable) {
         return PageResponse.from(
@@ -58,6 +63,7 @@ public class CourseService {
         );
     }
 
+    @Cacheable(cacheNames = "courses", key = "#id")
     @Transactional(readOnly = true)
     public CourseResponse get(UUID id) {
         Course course = courseRepository.findWithModulesAndLessonsById(id)
@@ -73,6 +79,7 @@ public class CourseService {
         );
     }
 
+    @CacheEvict(cacheNames = "courses", key = "#id")
     @Transactional
     public CourseSummaryResponse update(UUID id, UpdateCourseRequest req, UUID instructorId) {
         Course course = loadAndGuard(id, instructorId);
@@ -91,6 +98,10 @@ public class CourseService {
         return CourseSummaryResponse.from(courseRepository.save(course));
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "courses", key = "#id"),
+            @CacheEvict(cacheNames = "courses:list", allEntries = true)
+    })
     @Transactional
     public CourseSummaryResponse publish(UUID id, UUID instructorId) {
         Course course = courseRepository.findWithModulesAndLessonsById(id)
@@ -114,6 +125,10 @@ public class CourseService {
         return CourseSummaryResponse.from(courseRepository.save(course));
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "courses", key = "#id"),
+            @CacheEvict(cacheNames = "courses:list", allEntries = true)
+    })
     @Transactional
     public void delete(UUID id) {
         Course course = courseRepository.findById(id)
