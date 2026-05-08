@@ -1,5 +1,12 @@
 package com.courseservice.repositories;
 
-// Phase 2 — implemented in Phase 2
-public class ModuleRepository {
+import com.courseservice.models.Module;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.UUID;
+
+public interface ModuleRepository extends JpaRepository<Module, UUID> {
+
+    List<Module> findByCourseIdOrderByOrderIndex(UUID courseId);
 }

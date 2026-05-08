@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -41,7 +42,7 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                     : Collections.emptyList();
 
             String email = request.getHeader("X-User-Email");
-            UserPrincipal principal = new UserPrincipal(Long.parseLong(userId), email);
+            UserPrincipal principal = new UserPrincipal(UUID.fromString(userId), email);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, authorities));

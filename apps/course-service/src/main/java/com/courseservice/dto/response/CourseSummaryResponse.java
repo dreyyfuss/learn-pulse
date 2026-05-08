@@ -5,11 +5,9 @@ import com.courseservice.enums.CourseVisibility;
 import com.courseservice.models.Course;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-public record CourseResponse(
+public record CourseSummaryResponse(
         UUID id,
         UUID instructorId,
         String title,
@@ -21,18 +19,13 @@ public record CourseResponse(
         boolean isLocked,
         LocalDateTime publishedAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt,
-        List<ModuleResponse> modules
+        LocalDateTime updatedAt
 ) {
-    public static CourseResponse from(Course c) {
-        List<ModuleResponse> modules = c.getModules().stream()
-                .map(ModuleResponse::from)
-                .collect(Collectors.toList());
-        return new CourseResponse(
+    public static CourseSummaryResponse from(Course c) {
+        return new CourseSummaryResponse(
                 c.getId(), c.getInstructorId(), c.getTitle(), c.getDescription(),
                 c.getThumbnailUrl(), c.getCategory(), c.getVisibility(), c.getStatus(),
-                c.isLocked(), c.getPublishedAt(), c.getCreatedAt(), c.getUpdatedAt(),
-                modules
+                c.isLocked(), c.getPublishedAt(), c.getCreatedAt(), c.getUpdatedAt()
         );
     }
 }

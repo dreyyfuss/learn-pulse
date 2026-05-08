@@ -1,5 +1,19 @@
 package com.courseservice.dto.request;
 
-// Phase 2 — implemented in Phase 2
-public class CreateLessonRequest {
-}
+import com.courseservice.enums.ContentType;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+import java.util.List;
+
+public record CreateLessonRequest(
+        @NotBlank @Size(max = 200) String title,
+        String description,
+        @NotNull ContentType contentType,
+        @Size(max = 1024) String contentUrl,
+        @NotNull @Min(0) Integer orderIndex,
+        @Valid List<AttachmentRequest> attachments
+) {}

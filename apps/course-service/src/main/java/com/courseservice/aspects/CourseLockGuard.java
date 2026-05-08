@@ -1,0 +1,36 @@
+package com.courseservice.aspects;
+
+import com.courseservice.exception.CourseAlreadyStartedException;
+import com.courseservice.repositories.CourseRepository;
+import lombok.RequiredArgsConstructor;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Aspect
+@Component
+@RequiredArgsConstructor
+public class CourseLockGuard {
+
+    private final CourseRepository courseRepository;
+
+    @Around(
+        "execution(* com.courseservice.services.CourseService.update(..)) || " +
+        "execution(* com.courseservice.services.CourseService.publish(..)) || " +
+        "execution(* com.courseservice.services.ModuleService.*(..)) || " +
+        "execution(* com.courseservice.services.LessonService.*(..))"
+    )
+    public Object guardLocked(ProceedingJoinPoint pjp) throws Throwable {
+        UUID courseId = (UUID) pjp.getArgs()[0];
+        courseRepository.findById(courseId).ifPresent(course -> {
+            if (course.isLocked()) {
+                throw new CourseAlreadyStartedException(
+                        "Course is locked and cannot be modified.");
+            }
+        });
+        return pjp.proceed();
+    }
+}
