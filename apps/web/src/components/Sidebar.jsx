@@ -13,7 +13,7 @@ const LEARNER_LINKS = [
 
 const INSTRUCTOR_LINKS = [
   { path: '/teach/dashboard',   icon: 'layout-dashboard', label: 'Dashboard' },
-  { path: '/teach/courses/new', icon: 'edit-3',           label: 'Course builder' },
+  { path: '/teach/courses',     icon: 'edit-3',             label: 'My courses' },
   { path: '/teach/analytics',   icon: 'bar-chart-3',      label: 'Analytics' },
 ];
 

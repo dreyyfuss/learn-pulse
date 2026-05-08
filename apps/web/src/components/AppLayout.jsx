@@ -9,8 +9,7 @@ export default function AppLayout() {
 
   const roles = user?.roles ?? [];
   const isAdmin = roles.includes('ADMIN');
-  const isBuilder = location.pathname.includes('/teach/courses/') && location.pathname.includes('/edit')
-    || location.pathname === '/teach/courses/new';
+  const isBuilder = location.pathname.includes('/teach/courses/') && location.pathname.includes('/edit');
 
   return (
     <div className="app-shell">

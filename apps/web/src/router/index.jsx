@@ -10,6 +10,7 @@ import CourseDetail from '../features/learn/CourseDetail';
 import CoursePlayer from '../features/learn/CoursePlayer';
 import MyCertificates from '../features/learn/MyCertificates';
 import TeachDashboard from '../features/teach/TeachDashboard';
+import MyCourses from '../features/teach/MyCourses';
 import CourseBuilder from '../features/teach/CourseBuilder';
 import CourseAnalytics from '../features/teach/CourseAnalytics';
 import AdminOverview from '../features/admin/AdminOverview';
@@ -40,7 +41,7 @@ const router = createBrowserRouter([
             element: <RoleRoute requiredRole="INSTRUCTOR" />,
             children: [
               { path: 'teach/dashboard',              element: <TeachDashboard /> },
-              { path: 'teach/courses/new',            element: <CourseBuilder /> },
+              { path: 'teach/courses',                element: <MyCourses /> },
               { path: 'teach/courses/:id/edit',       element: <CourseBuilder /> },
               { path: 'teach/courses/:id/analytics',  element: <CourseAnalytics /> },
               { path: 'teach/analytics',              element: <CourseAnalytics /> },

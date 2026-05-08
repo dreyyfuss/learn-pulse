@@ -28,7 +28,7 @@ export default function TeachDashboard() {
           <h1 className="page-title">Good morning, Marta.</h1>
           <p className="page-lede" style={{ marginBottom: 0 }}>Three courses live, one in draft. 1,284 learners enrolled this month — up 12% from April.</p>
         </div>
-        <button className="btn btn-primary" style={{ marginTop: 8, flexShrink: 0 }} onClick={() => navigate('/teach/courses/new')}>
+        <button className="btn btn-primary" style={{ marginTop: 8, flexShrink: 0 }} onClick={() => navigate('/teach/courses', { state: { openCreate: true } })}>
           <Icon name="plus" size={15} /> New course
         </button>
       </div>

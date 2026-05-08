@@ -119,8 +119,8 @@ export default function Navbar() {
           <button className={`nav-link${screen === '/teach/dashboard' ? ' active' : ''}`} onClick={() => navigate('/teach/dashboard')}>
             <Icon name="layout-dashboard" size={15} /> Dashboard
           </button>
-          <button className={`nav-link${screen.startsWith('/teach/courses') && screen.includes('edit') ? ' active' : ''}`} onClick={() => navigate('/teach/courses/new')}>
-            <Icon name="edit-3" size={15} /> Course builder
+          <button className={`nav-link${screen.startsWith('/teach/courses') ? ' active' : ''}`} onClick={() => navigate('/teach/courses')}>
+            <Icon name="edit-3" size={15} /> My courses
           </button>
           <button className={`nav-link${screen.includes('analytics') ? ' active' : ''}`} onClick={() => navigate('/teach/courses/c1/analytics')}>
             <Icon name="bar-chart-3" size={15} /> Analytics
