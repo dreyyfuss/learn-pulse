@@ -35,6 +35,18 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage(), "COURSE_LOCKED"));
     }
 
+    @ExceptionHandler(NotOwnerException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotOwner(NotOwnerException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage(), "NOT_OWNER"));
+    }
+
+    @ExceptionHandler(CourseNotPublishableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotPublishable(CourseNotPublishableException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(ex.getMessage(), "COURSE_NOT_PUBLISHABLE"));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

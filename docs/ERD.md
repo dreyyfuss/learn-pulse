@@ -151,7 +151,7 @@ erDiagram
 ### 2.1 `users`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, auto-increment |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
 | `email` | `VARCHAR(254)` | UK, lowercased on insert |
 | `password_hash` | `VARCHAR(72)` | BCrypt, cost 12 |
 | `full_name` | `VARCHAR(120)` | |
@@ -162,7 +162,7 @@ erDiagram
 ### 2.2 `user_roles`
 | Column | Type | Notes |
 |---|---|---|
-| `user_id` | `BIGINT UNSIGNED` | FK → `users.id`, `ON DELETE CASCADE` |
+| `user_id` | `BINARY(16)` | FK → `users.id`, `ON DELETE CASCADE` |
 | `role` | `ENUM('LEARNER','INSTRUCTOR','ADMIN')` | |
 
 PK: composite `(user_id, role)`.
@@ -170,8 +170,8 @@ PK: composite `(user_id, role)`.
 ### 2.3 `courses`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `instructor_id` | `BIGINT UNSIGNED` | FK → `users.id`, `ON DELETE RESTRICT` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `instructor_id` | `BINARY(16)` | FK → `users.id`, `ON DELETE RESTRICT` |
 | `title` | `VARCHAR(200)` | |
 | `description` | `TEXT` | |
 | `thumbnail_url` | `VARCHAR(1024)` | nullable |
@@ -190,8 +190,8 @@ Indexes: `IDX(instructor_id)`, `IDX(status, visibility)`.
 ### 2.4 `modules`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `course_id` | `BIGINT UNSIGNED` | FK → `courses.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `course_id` | `BINARY(16)` | FK → `courses.id`, `ON DELETE CASCADE` |
 | `title` | `VARCHAR(200)` | |
 | `description` | `TEXT` | |
 | `order_index` | `INT UNSIGNED` | |
@@ -202,8 +202,8 @@ UK: `(course_id, order_index)`. Index: `IDX(course_id)`.
 ### 2.5 `lessons`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `module_id` | `BIGINT UNSIGNED` | FK → `modules.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `module_id` | `BINARY(16)` | FK → `modules.id`, `ON DELETE CASCADE` |
 | `title` | `VARCHAR(200)` | |
 | `description` | `TEXT` | |
 | `content_type` | `ENUM('VIDEO','DOCUMENT','ARTICLE','OTHER')` | |
@@ -216,8 +216,8 @@ UK: `(module_id, order_index)`. Index: `IDX(module_id)`.
 ### 2.6 `lesson_attachments`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `lesson_id` | `BIGINT UNSIGNED` | FK → `lessons.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `lesson_id` | `BINARY(16)` | FK → `lessons.id`, `ON DELETE CASCADE` |
 | `file_name` | `VARCHAR(255)` | |
 | `s3_url` | `VARCHAR(1024)` | |
 | `mime_type` | `VARCHAR(120)` | |
@@ -225,9 +225,9 @@ UK: `(module_id, order_index)`. Index: `IDX(module_id)`.
 ### 2.7 `enrolments`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `user_id` | `BIGINT UNSIGNED` | FK → `users.id`, `ON DELETE CASCADE` |
-| `course_id` | `BIGINT UNSIGNED` | FK → `courses.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `user_id` | `BINARY(16)` | FK → `users.id`, `ON DELETE CASCADE` |
+| `course_id` | `BINARY(16)` | FK → `courses.id`, `ON DELETE CASCADE` |
 | `status` | `ENUM('ACTIVE','COMPLETED')` | default `'ACTIVE'` |
 | `enrolled_at` | `DATETIME(6)` | |
 | `started_at` | `DATETIME(6)` | nullable; setting this triggers course lock |
@@ -238,9 +238,9 @@ UK: `(user_id, course_id)`. Indexes: `IDX(course_id, status)`, `IDX(user_id, sta
 ### 2.8 `lesson_progress`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `user_id` | `BIGINT UNSIGNED` | FK → `users.id`, `ON DELETE CASCADE` |
-| `lesson_id` | `BIGINT UNSIGNED` | FK → `lessons.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `user_id` | `BINARY(16)` | FK → `users.id`, `ON DELETE CASCADE` |
+| `lesson_id` | `BINARY(16)` | FK → `lessons.id`, `ON DELETE CASCADE` |
 | `status` | `ENUM('COMPLETED')` | only completed records exist; absence = not started |
 | `completed_at` | `DATETIME(6)` | |
 
@@ -249,9 +249,9 @@ UK: `(user_id, lesson_id)`. Status is irreversible per PRD §4.2.
 ### 2.9 `module_unlocks`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
-| `enrolment_id` | `BIGINT UNSIGNED` | FK → `enrolments.id`, `ON DELETE CASCADE` |
-| `module_id` | `BIGINT UNSIGNED` | FK → `modules.id`, `ON DELETE CASCADE` |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
+| `enrolment_id` | `BINARY(16)` | FK → `enrolments.id`, `ON DELETE CASCADE` |
+| `module_id` | `BINARY(16)` | FK → `modules.id`, `ON DELETE CASCADE` |
 | `unlocked_at` | `DATETIME(6)` | |
 
 UK: `(enrolment_id, module_id)`.
@@ -259,10 +259,10 @@ UK: `(enrolment_id, module_id)`.
 ### 2.10 `certificates`
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK |
+| `id` | `BINARY(16)` | PK, application-generated UUID |
 | `certificate_uuid` | `CHAR(36)` | UK, externally visible |
-| `user_id` | `BIGINT UNSIGNED` | FK → `users.id`, `ON DELETE CASCADE` |
-| `course_id` | `BIGINT UNSIGNED` | FK → `courses.id`, `ON DELETE CASCADE` |
+| `user_id` | `BINARY(16)` | FK → `users.id`, `ON DELETE CASCADE` |
+| `course_id` | `BINARY(16)` | FK → `courses.id`, `ON DELETE CASCADE` |
 | `s3_url` | `VARCHAR(1024)` | object key, signed on download |
 | `issued_at` | `DATETIME(6)` | |
 
