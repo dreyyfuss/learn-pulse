@@ -66,8 +66,10 @@ app:
 
   s3:
     bucket: ${S3_BUCKET:learnpulse}
-    endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
+    endpoint: ${S3_ENDPOINT:}        # leave empty for real AWS; set to MinIO URL for dev
     region: ${S3_REGION:us-east-1}
+    access-key: ${S3_ACCESS_KEY:minioadmin}   # AWS_ACCESS_KEY_ID or MinIO root user
+    secret-key: ${S3_SECRET_KEY:minioadmin}   # AWS_SECRET_ACCESS_KEY or MinIO root password
 
   mailgun:
     api-key: ${MAILGUN_API_KEY:}

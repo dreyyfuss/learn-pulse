@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your LearnPulse Certificate</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Georgia,serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background-color:#ffffff;border:1px solid #e0e0e0;border-radius:4px;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1a3c6b;padding:28px 40px;text-align:center;">
+              <div style="font-size:26px;font-weight:bold;color:#ffffff;letter-spacing:4px;">LearnPulse</div>
+              <div style="font-size:10px;color:#a0b8d8;letter-spacing:2px;margin-top:4px;">LEARNING MANAGEMENT SYSTEM</div>
+            </td>
+          </tr>
+
+          <!-- Gold accent bar -->
+          <tr><td style="background-color:#c8960c;height:4px;line-height:4px;">&#160;</td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 48px 32px;">
+
+              <p style="margin:0 0 8px;font-size:15px;color:#555555;">
+                Dear <strong th:text="${learnerName}">Jane Doe</strong>,
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#333333;line-height:1.6;">
+                Congratulations on completing
+                <strong th:text="${courseName}">Introduction to Spring Boot</strong>!
+                Your certificate of completion is now ready to download.
+              </p>
+
+              <!-- Download button -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
+                <tr>
+                  <td style="background-color:#c8960c;border-radius:4px;">
+                    <a th:href="${downloadUrl}" href="#"
+                       style="display:inline-block;padding:14px 40px;font-size:15px;font-weight:bold;
+                              color:#ffffff;text-decoration:none;letter-spacing:1px;">
+                      Download Certificate
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 6px;font-size:12px;color:#999999;">
+                If the button doesn't work, copy this link into your browser:
+              </p>
+              <p style="margin:0 0 32px;font-size:12px;word-break:break-all;">
+                <a th:href="${downloadUrl}" th:text="${downloadUrl}" href="#"
+                   style="color:#1a3c6b;">link</a>
+              </p>
+
+              <hr style="border:none;border-top:1px solid #eeeeee;margin:0 0 20px;"/>
+
+              <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.8;">
+                Certificate ID:&#160;
+                <span th:text="${certificateId}"
+                      style="font-family:monospace;">00000000-0000-0000-0000-000000000000</span><br/>
+                Issued:&#160;<span th:text="${issuedAt}">January 1, 2026</span>
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f8f8f8;padding:16px 48px;text-align:center;border-top:1px solid #eeeeee;">
+              <p style="margin:0;font-size:11px;color:#bbbbbb;">
+                &#169; 2026 LearnPulse &#8226; You received this because you completed a course on our platform.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

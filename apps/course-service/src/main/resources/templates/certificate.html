@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      xml:lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>Certificate of Completion</title>
+    <style type="text/css">
+        @page {
+            size: 842pt 595pt;
+            margin: 50pt 60pt;
+        }
+        body {
+            font-family: Georgia, serif;
+            background-color: #ffffff;
+            color: #222222;
+        }
+        .outer-border {
+            border: 6pt solid #1a3c6b;
+            padding: 20pt 30pt;
+        }
+        .inner-border {
+            border: 1pt solid #c8960c;
+            padding: 20pt 30pt;
+        }
+        .logo-row {
+            text-align: center;
+            margin-bottom: 10pt;
+        }
+        .logo-name {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #1a3c6b;
+            letter-spacing: 4pt;
+        }
+        .logo-tagline {
+            font-size: 8pt;
+            color: #888888;
+            letter-spacing: 2pt;
+        }
+        .divider {
+            border-top: 1pt solid #c8960c;
+            margin: 10pt 0;
+        }
+        .certifies-text {
+            font-size: 11pt;
+            color: #555555;
+            letter-spacing: 2pt;
+            text-align: center;
+            margin: 8pt 0 4pt 0;
+        }
+        .learner-name {
+            font-size: 30pt;
+            color: #c8960c;
+            font-style: italic;
+            text-align: center;
+            margin: 6pt 0 10pt 0;
+        }
+        .completed-text {
+            font-size: 12pt;
+            color: #444444;
+            text-align: center;
+            margin: 4pt 0;
+        }
+        .course-name {
+            font-size: 20pt;
+            color: #1a3c6b;
+            font-weight: bold;
+            text-align: center;
+            margin: 6pt 0 16pt 0;
+        }
+        .meta-table {
+            width: 60%;
+            margin: 0 auto;
+            border-collapse: collapse;
+        }
+        .meta-label {
+            font-size: 9pt;
+            color: #888888;
+            letter-spacing: 1pt;
+            text-align: right;
+            padding: 3pt 10pt 3pt 0;
+            width: 45%;
+        }
+        .meta-value {
+            font-size: 10pt;
+            color: #333333;
+            text-align: left;
+            padding: 3pt 0;
+        }
+        .cert-id {
+            font-size: 7pt;
+            color: #bbbbbb;
+            text-align: center;
+            margin-top: 18pt;
+        }
+    </style>
+</head>
+<body>
+<div class="outer-border">
+    <div class="inner-border">
+
+        <!-- Logo -->
+        <div class="logo-row">
+            <div class="logo-name">LearnPulse</div>
+            <div class="logo-tagline">LEARNING MANAGEMENT SYSTEM</div>
+        </div>
+
+        <div class="divider">&#160;</div>
+
+        <p class="certifies-text">THIS IS TO CERTIFY THAT</p>
+
+        <div class="learner-name" th:text="${model.learnerName}">Jane Doe</div>
+
+        <p class="completed-text">has successfully completed the course</p>
+
+        <div class="course-name" th:text="${model.courseName}">Introduction to Spring Boot</div>
+
+        <table class="meta-table">
+            <tr>
+                <td class="meta-label">INSTRUCTOR</td>
+                <td class="meta-value" th:text="${model.instructorName}">John Smith</td>
+            </tr>
+            <tr>
+                <td class="meta-label">COMPLETED ON</td>
+                <td class="meta-value" th:text="${model.completionDate}">January 1, 2026</td>
+            </tr>
+            <tr>
+                <td class="meta-label">ISSUED</td>
+                <td class="meta-value" th:text="${model.issuedAt}">January 1, 2026</td>
+            </tr>
+        </table>
+
+        <div class="cert-id">
+            Certificate ID: <span th:text="${model.certId}">00000000-0000-0000-0000-000000000000</span>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

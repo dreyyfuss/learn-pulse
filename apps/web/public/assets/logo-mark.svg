@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56" role="img" aria-label="LearnPulse mark">
+  <rect x="2" y="2" width="52" height="52" rx="13" fill="#2A2D7C"></rect>
+  <polyline points="12,32 19,32 22,22 28,42 33,26 38,34 46,34" fill="none" stroke="#FBF8F3" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <circle cx="46" cy="34" r="3" fill="#E8593E"></circle>
+</svg>

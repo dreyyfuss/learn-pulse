@@ -1,5 +1,10 @@
 package com.courseservice.dto.response;
 
-// Phase 5 — implemented in Phase 5
-public class CertificateResponse {
-}
+import java.time.LocalDateTime;
+
+public record CertificateResponse(
+        String id,
+        Long courseId,
+        String s3Url,
+        LocalDateTime issuedAt
+) {}
