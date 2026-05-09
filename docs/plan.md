@@ -124,7 +124,7 @@
 
 ## Phase 4 — Kafka Backbone & Email Pipeline (Week 5)
 
-**Goal:** Real Kafka events replace the stubs. Mailgun (local: MailHog) sends welcome and module-unlocked emails. Idempotency is proven by tests.
+**Goal:** Real Kafka events replace the stubs. Mailgun API sends welcome and module-unlocked emails. Idempotency is proven by tests.
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
@@ -154,7 +154,7 @@
 | 5.2 | Thymeleaf certificate template + Flying Saucer renderer in Certificate Service. Template includes: learner name, course, instructor, date, cert UUID, logo. To get learner and course details, the Certificate Service calls the User Service and Course Service REST APIs using the `course.completed` event's `userId` and `courseId`. | BE-B | M | 5.1 | Render & open a sample PDF |
 | 5.3 | `CertificateConsumer` in Certificate Service (group `certificate-service`) consuming `course.completed`. Implements the exactly-once flow from `kafka-events.md` §4.4. Flyway V1 (`certificates`, `idempotency_log`) runs on Certificate Service startup. | BE-A | L | 4.6, 5.2 | Single message → single row in `certificates` in `learnpulse_certs` |
 | 5.4 | After successful commit in Certificate Service, emit `certificate.generated` via outbox. | BE-A | S | 5.3, 4.3 | Topic receives event |
-| 5.5 | Extend `EmailConsumer` (User Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | MailHog shows email with download link |
+| 5.5 | Extend `EmailConsumer` (User Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | Mailgun delivers email with download link |
 | 5.6 | `GET /api/learner/certificates` and `GET /api/certificates/{id}/download` (signed S3 URL, 5 min TTL) — served by Certificate Service; Traefik routes these paths to it automatically. | BE-A | M | 5.3 | Click link → PDF downloads |
 | 5.7 | Concurrency test: two consumer threads receive the same `eventId` simultaneously → exactly one row in `certificates`, one row in `idempotency_log` (Certificate Service DB). | BE-A | M | 5.3 | Test passes ≥ 100 iterations |
 | 5.8 | Frontend: "My Certificates" page (`/learn/certificates`). | FE-A | M | 5.6 | Lists and downloads |
