@@ -1,5 +1,10 @@
 package com.courseservice.repositories;
 
-// Phase 2 — implemented in Phase 2
-public class LessonAttachmentRepository {
+import com.courseservice.models.LessonAttachment;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface LessonAttachmentRepository extends JpaRepository<LessonAttachment, Long> {
+    List<LessonAttachment> findAllByLesson_Id(Long lessonId);
 }

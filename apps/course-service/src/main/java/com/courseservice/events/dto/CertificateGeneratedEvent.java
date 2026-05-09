@@ -1,5 +1,13 @@
 package com.courseservice.events.dto;
 
-// Phase 5 — implemented in Phase 5
-public class CertificateGeneratedEvent {
-}
+public record CertificateGeneratedEvent(
+        String eventId,
+        String eventType,
+        int version,
+        String occurredAt,
+        Long userId,
+        Long courseId,
+        String certificateId,
+        String s3Url,
+        String issuedAt
+) {}

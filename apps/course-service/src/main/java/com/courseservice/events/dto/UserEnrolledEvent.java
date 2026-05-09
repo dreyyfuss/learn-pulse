@@ -1,5 +1,11 @@
 package com.courseservice.events.dto;
 
-// Phase 4 — implemented in Phase 4
-public class UserEnrolledEvent {
-}
+public record UserEnrolledEvent(
+        String eventId,
+        String eventType,
+        int version,
+        String occurredAt,
+        Long userId,
+        Long courseId,
+        Long enrolmentId
+) {}

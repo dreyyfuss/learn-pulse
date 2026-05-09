@@ -1,5 +1,7 @@
 package com.courseservice.repositories;
 
-// Phase 5 — implemented in Phase 5
-public class IdempotencyLogRepository {
+import com.courseservice.models.IdempotencyLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface IdempotencyLogRepository extends JpaRepository<IdempotencyLog, String> {
 }

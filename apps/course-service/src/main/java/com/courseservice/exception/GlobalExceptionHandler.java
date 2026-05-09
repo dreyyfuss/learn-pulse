@@ -60,6 +60,36 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage(), "COURSE_LOCKED"));
     }
 
+    @ExceptionHandler(LessonOutOfOrderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLessonOutOfOrder(LessonOutOfOrderException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage(), "LESSON_OUT_OF_ORDER"));
+    }
+
+    @ExceptionHandler(ModuleLockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleModuleLocked(ModuleLockedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage(), "MODULE_LOCKED"));
+    }
+
+    @ExceptionHandler(AlreadyEnrolledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAlreadyEnrolled(AlreadyEnrolledException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage(), "ALREADY_ENROLLED"));
+    }
+
+    @ExceptionHandler(EnrolmentCodeInvalidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEnrolmentCodeInvalid(EnrolmentCodeInvalidException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage(), "ENROLMENT_CODE_INVALID"));
+    }
+
+    @ExceptionHandler(CoursePublishException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCoursePublish(CoursePublishException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(ex.getMessage(), "COURSE_PUBLISH_INVALID"));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

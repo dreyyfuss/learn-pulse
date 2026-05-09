@@ -1,5 +1,12 @@
 package com.courseservice.events.dto;
 
-// Phase 4 — implemented in Phase 4
-public class CourseCompletedEvent {
-}
+public record CourseCompletedEvent(
+        String eventId,
+        String eventType,
+        int version,
+        String occurredAt,
+        Long userId,
+        Long courseId,
+        Long enrolmentId,
+        String completedAt
+) {}

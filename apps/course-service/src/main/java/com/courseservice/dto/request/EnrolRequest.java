@@ -1,5 +1,9 @@
 package com.courseservice.dto.request;
 
-// Phase 3 — implemented in Phase 3
-public class EnrolRequest {
-}
+import jakarta.validation.constraints.NotNull;
+
+public record EnrolRequest(
+        @NotNull(message = "courseId is required")
+        Long courseId,
+        String enrolmentCode
+) {}
