@@ -30,7 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.cache.type=none"
 })
 class CourseLockGuardTest {
 
