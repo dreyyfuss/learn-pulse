@@ -4,7 +4,4 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
-public record EnrolRequest(
-        @NotNull UUID courseId,
-        String enrolmentCode
-) {}
+public record AdminEnrolRequest(@NotNull UUID userId, @NotNull UUID courseId) {}
