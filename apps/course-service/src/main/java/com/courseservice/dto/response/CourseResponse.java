@@ -26,6 +26,7 @@ public record CourseResponse(
 ) {
     public static CourseResponse from(Course c) {
         List<ModuleResponse> modules = c.getModules().stream()
+                .distinct()
                 .map(ModuleResponse::from)
                 .collect(Collectors.toList());
         return new CourseResponse(
