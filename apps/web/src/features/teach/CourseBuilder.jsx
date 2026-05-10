@@ -332,8 +332,8 @@ function EditCourseBuilder({ courseId }) {
                   onDragStart={() => onLessonDragStart(m.id, lIdx)}
                   onDragOver={onLessonDragOver}
                   onDrop={() => onLessonDrop(m.id, lIdx)}
-                  onClick={() => !isLocked && selectLesson(l, m.id)}
-                  style={{ cursor: isLocked ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                  onClick={() => selectLesson(l, m.id)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                 >
                   {!isLocked && (
                     <span className="drag-handle" style={{ flexShrink: 0 }}>

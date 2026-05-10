@@ -1,83 +1,150 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import ProgressBar from '../../components/ProgressBar';
 import Notification from '../../components/Notification';
 import AiChatDrawer from './AiChatDrawer';
-import { MODULES_DATA } from '../../data/mockData';
+import courseService from '../../services/courseService';
+import enrolmentService from '../../services/enrolmentService';
 
 export default function CoursePlayer() {
   const navigate = useNavigate();
-  const [currentId, setCurrentId] = useState('l5');
-  const [completed, setCompleted] = useState(new Set(['l1', 'l2', 'l3', 'l4']));
-  const [showAI, setShowAI] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [toast, setToast] = useState('');
+  const { id: courseId } = useParams();
 
-  const allLessons = MODULES_DATA.flatMap(m => m.lessons);
-  const lesson = allLessons.find(l => l.id === currentId) || allLessons[0];
-  const mod = MODULES_DATA.find(m => m.lessons.some(l => l.id === currentId));
-  const isComplete = completed.has(currentId);
-  const totalDone = completed.size;
+  const [resolvedModules, setResolvedModules] = useState([]);
+  const [courseName, setCourseName]           = useState('');
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState('');
+  const [currentLessonId, setCurrentLessonId] = useState(null);
+  const [completedIds, setCompletedIds]       = useState(new Set());
+  const [showAI, setShowAI]                   = useState(false);
+  const [toast, setToast]                     = useState('');
 
-  const markComplete = () => {
-    setCompleted(s => new Set([...s, currentId]));
-    setToast('Lesson complete.');
-    setTimeout(() => setToast(''), 2500);
-    const idx = allLessons.findIndex(l => l.id === currentId);
-    const next = allLessons[idx + 1];
-    if (next && !next.locked) setTimeout(() => setCurrentId(next.id), 800);
+  useEffect(() => {
+    if (!courseId) return;
+    Promise.all([courseService.get(courseId), enrolmentService.listMine()])
+      .then(([courseData, enrolData]) => {
+        setCourseName(courseData.title);
+        const cId = courseData.courseId ?? courseData.id;
+        const match = (enrolData.items ?? []).find(e => e.courseId === cId);
+        if (!match) throw new Error('Not enrolled in this course.');
+        return enrolmentService.getProgress(match.enrolmentId).then(prog => ({ courseData, prog }));
+      })
+      .then(({ courseData, prog }) => {
+        const pmMap = new Map((prog.modules ?? []).map(pm => [pm.moduleId, pm]));
+        const merged = (courseData.modules ?? []).map(cm => {
+          const pm = pmMap.get(cm.moduleId) ?? { unlocked: false, lessons: [] };
+          const plMap = new Map((pm.lessons ?? []).map(l => [l.lessonId, l]));
+          return {
+            moduleId:   cm.moduleId,
+            title:      cm.title,
+            orderIndex: cm.orderIndex,
+            unlocked:   pm.unlocked,
+            lessons:    (cm.lessons ?? []).map(cl => {
+              const pl = plMap.get(cl.lessonId) ?? { completed: false };
+              return {
+                lessonId:    cl.lessonId,
+                title:       cl.title,
+                orderIndex:  cl.orderIndex,
+                contentType: cl.contentType,
+                contentUrl:  cl.contentUrl ?? null,
+                completed:   pl.completed,
+              };
+            }),
+          };
+        });
+        setResolvedModules(merged);
+        setCompletedIds(new Set(
+          merged.flatMap(m => m.lessons.filter(l => l.completed).map(l => l.lessonId))
+        ));
+        if (prog.currentLessonId) {
+          setCurrentLessonId(prog.currentLessonId);
+        } else {
+          const first = merged.find(m => m.unlocked)?.lessons?.[0];
+          if (first) setCurrentLessonId(first.lessonId);
+        }
+      })
+      .catch(err => setError(err.message || 'Could not load player.'))
+      .finally(() => setLoading(false));
+  }, [courseId]);
+
+  const allLessons = resolvedModules.flatMap(m => m.lessons);
+  const lesson     = allLessons.find(l => l.lessonId === currentLessonId);
+  const mod        = resolvedModules.find(m => m.lessons.some(l => l.lessonId === currentLessonId));
+  const isComplete = completedIds.has(currentLessonId);
+  const totalDone  = completedIds.size;
+  const currentIdx = allLessons.findIndex(l => l.lessonId === currentLessonId);
+
+  const markComplete = async () => {
+    if (!currentLessonId || isComplete) return;
+    const nextLesson = allLessons[currentIdx + 1];
+    try {
+      const result = await enrolmentService.completeLesson(currentLessonId);
+      setCompletedIds(prev => new Set([...prev, currentLessonId]));
+      setToast('Lesson complete.'); setTimeout(() => setToast(''), 2500);
+      if (result.moduleUnlocked) {
+        const { moduleId } = result.moduleUnlocked;
+        setResolvedModules(prev => prev.map(m =>
+          m.moduleId === moduleId ? { ...m, unlocked: true } : m
+        ));
+      }
+      if (nextLesson) {
+        const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === nextLesson.lessonId));
+        const willUnlock = nextMod?.moduleId === result.moduleUnlocked?.moduleId || nextMod?.unlocked;
+        if (willUnlock) setTimeout(() => setCurrentLessonId(nextLesson.lessonId), 800);
+      }
+    } catch (err) {
+      setToast('Could not mark complete: ' + err.message);
+      setTimeout(() => setToast(''), 3000);
+    }
   };
+
+  if (loading) return <div className="main"><p style={{ color: 'var(--ink-3)' }}>Loading…</p></div>;
+  if (error)   return <div className="main"><p style={{ color: 'var(--danger)' }}>{error}</p></div>;
 
   return (
     <div style={{ position: 'relative' }}>
       <div className="main" style={{ paddingBottom: 100 }}>
-        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 20, marginLeft: -8 }} onClick={() => navigate('/learn/courses/c1')}>
-          <Icon name="arrow-left" size={15} /> Data structures, in plain English
+        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 20, marginLeft: -8 }} onClick={() => navigate(`/learn/courses/${courseId}`)}>
+          <Icon name="arrow-left" size={15} /> {courseName}
         </button>
 
         <div className="player-shell">
           <div>
-            {lesson.type === 'video' && (
-              <div className="video-block">
-                <div>
-                  <div className="vid-mono">{mod?.id.toUpperCase()} · L0{lesson.idx} · {lesson.title.toLowerCase().replace(/ /g, '-')}</div>
-                  <div className="vid-title">{lesson.title}</div>
-                </div>
-                <div className="vid-controls">
-                  <button className="play-btn" onClick={() => setPlaying(!playing)}>
-                    <Icon name={playing ? 'pause' : 'play'} size={18} color="#fbf8f3" />
-                  </button>
-                  <div className="scrub"><div className="scrub-fill" style={{ width: '38%' }} /></div>
-                  <span className="vid-time">1:54 / 5:00</span>
-                </div>
+            {lesson?.contentType === 'VIDEO' && lesson?.contentUrl && (
+              <div className="video-block" style={{ padding: 0, background: 'transparent' }}>
+                <iframe
+                  src={lesson.contentUrl}
+                  title={lesson.title}
+                  style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: 14 }}
+                  allowFullScreen
+                />
               </div>
             )}
-            <div className="lesson-body">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span className="lesson-content-type">
-                  <Icon name={lesson.type === 'video' ? 'play-circle' : lesson.type === 'exercise' ? 'pencil' : 'file-text'} size={13} />
-                  {lesson.type === 'video' ? 'Video · 5 min' : lesson.type === 'exercise' ? 'Exercise · 10 min' : 'Reading · 3 min'}
-                </span>
+
+            {lesson && lesson.contentType !== 'VIDEO' && lesson.contentUrl && (
+              <div style={{ marginBottom: 16 }}>
+                <a href={lesson.contentUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                  <Icon name="file-text" size={14} /> Open resource
+                </a>
               </div>
-              <div className="lesson-breadcrumb">{mod?.title} / Lesson {lesson.idx}</div>
-              <h2 className="lesson-title">{lesson.title}</h2>
-              <div className="lesson-reading">
-                <p>Inserting at the head of a linked list is the cheapest insert there is. You point your new node at the current head, then move the head pointer to the new node. That's it.</p>
-                <p>In code: <code>node.next = head; head = node;</code> — two lines, constant time, no walking the list.</p>
-                <p>Why does this matter? Because every other linked-list operation builds on this one. If you can draw it on paper without flinching, you can write it in any language.</p>
-                <p>The key insight: you never need to know the length of the list, and you never touch any existing node except the old head. This is why it stays O(1) regardless of list size.</p>
+            )}
+
+            {lesson && (
+              <div className="lesson-body">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <span className="lesson-content-type">
+                    <Icon name={
+                      lesson.contentType === 'VIDEO' ? 'play-circle' :
+                      lesson.contentType === 'DOCUMENT' ? 'file-text' : 'book-open'
+                    } size={13} />
+                    {lesson.contentType?.charAt(0) + (lesson.contentType?.slice(1).toLowerCase() ?? '')}
+                  </span>
+                </div>
+                <div className="lesson-breadcrumb">{mod?.title} / {lesson.title}</div>
+                <h2 className="lesson-title">{lesson.title}</h2>
               </div>
-              <div className="attachments">
-                <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink-4)', marginBottom: 4 }}>Attachments</div>
-                {['linked-list-diagrams.pdf', 'exercise-template.md'].map(f => (
-                  <div key={f} className="attachment-item">
-                    <Icon name="paperclip" size={14} />
-                    <a href="#" onClick={e => e.preventDefault()}>{f}</a>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="lesson-sidebar">
@@ -85,30 +152,37 @@ export default function CoursePlayer() {
               <div className="lesson-tree-head">
                 <div className="lt-eyebrow">Course progress</div>
                 <div className="lt-progress">
-                  <ProgressBar value={Math.round((totalDone / allLessons.length) * 100)} />
+                  <ProgressBar value={allLessons.length ? Math.round((totalDone / allLessons.length) * 100) : 0} />
                   <span className="prog-label">{totalDone}/{allLessons.length}</span>
                 </div>
               </div>
-              {MODULES_DATA.map(m => (
-                <div key={m.id} className="module-block">
-                  <div className={`module-header${m.locked ? ' locked' : ''}`}>
+              {resolvedModules.map(m => (
+                <div key={m.moduleId} className="module-block">
+                  <div className={`module-header${!m.unlocked ? ' locked' : ''}`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {m.locked ? <Icon name="lock" size={13} color="var(--ink-4)" /> : <Icon name="chevron-down" size={13} color="var(--ink-3)" />}
+                      {!m.unlocked
+                        ? <Icon name="lock" size={13} color="var(--ink-4)" />
+                        : <Icon name="chevron-down" size={13} color="var(--ink-3)" />}
                       <span className="mod-title">{m.title}</span>
                     </div>
-                    <span className="mod-count">{m.lessons.filter(l => completed.has(l.id)).length}/{m.lessons.length}</span>
+                    <span className="mod-count">
+                      {m.lessons.filter(l => completedIds.has(l.lessonId)).length}/{m.lessons.length}
+                    </span>
                   </div>
-                  {!m.locked && m.lessons.map((l, i) => (
+                  {m.unlocked && m.lessons.map((l, i) => (
                     <div
-                      key={l.id}
-                      className={`lesson-item${l.id === currentId ? ' active' : ''}${l.locked ? ' locked' : ''}`}
-                      onClick={() => !l.locked && setCurrentId(l.id)}
+                      key={l.lessonId}
+                      className={`lesson-item${l.lessonId === currentLessonId ? ' active' : ''}`}
+                      onClick={() => setCurrentLessonId(l.lessonId)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <div className={`lesson-dot${completed.has(l.id) ? ' done' : l.id === currentId ? ' current' : ''}`}>
-                        {completed.has(l.id) ? '✓' : i + 1}
+                      <div className={`lesson-dot${completedIds.has(l.lessonId) ? ' done' : l.lessonId === currentLessonId ? ' current' : ''}`}>
+                        {completedIds.has(l.lessonId) ? '✓' : i + 1}
                       </div>
                       <span style={{ lineHeight: 1.3 }}>{l.title}</span>
-                      <span className="lesson-time">{l.mins}m</span>
+                      <span className="lesson-time" style={{ fontSize: 11, textTransform: 'capitalize' }}>
+                        {l.contentType?.toLowerCase()}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -119,21 +193,37 @@ export default function CoursePlayer() {
       </div>
 
       <div className="lesson-footer">
-        <button className="btn btn-secondary btn-sm" onClick={() => {
-          const idx = allLessons.findIndex(l => l.id === currentId);
-          if (idx > 0) setCurrentId(allLessons[idx - 1].id);
-        }}>
+        <button
+          className="btn btn-secondary btn-sm"
+          disabled={currentIdx <= 0}
+          onClick={() => { if (currentIdx > 0) setCurrentLessonId(allLessons[currentIdx - 1].lessonId); }}
+        >
           <Icon name="chevron-left" size={15} /> Previous
         </button>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button className={`btn btn-sm ${isComplete ? 'btn-secondary' : 'btn-pulse'}`} onClick={markComplete} disabled={isComplete}>
+          <button
+            className={`btn btn-sm ${isComplete ? 'btn-secondary' : 'btn-pulse'}`}
+            onClick={markComplete}
+            disabled={isComplete || !mod?.unlocked}
+          >
             {isComplete ? <><Icon name="check" size={14} /> Completed ✓</> : 'Mark as complete'}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => {
-            const idx = allLessons.findIndex(l => l.id === currentId);
-            const next = allLessons[idx + 1];
-            if (next && !next.locked) setCurrentId(next.id);
-          }}>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={currentIdx >= allLessons.length - 1 || (() => {
+              const next = allLessons[currentIdx + 1];
+              if (!next) return true;
+              const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === next.lessonId));
+              return !nextMod?.unlocked;
+            })()}
+            onClick={() => {
+              const next = allLessons[currentIdx + 1];
+              if (next) {
+                const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === next.lessonId));
+                if (nextMod?.unlocked) setCurrentLessonId(next.lessonId);
+              }
+            }}
+          >
             Next <Icon name="chevron-right" size={15} />
           </button>
         </div>
@@ -143,7 +233,7 @@ export default function CoursePlayer() {
         <Icon name="sparkles" size={15} /> Ask AI
       </button>
 
-      {showAI && <AiChatDrawer courseName="Data structures, in plain English" onClose={() => setShowAI(false)} />}
+      {showAI && <AiChatDrawer courseName={courseName} onClose={() => setShowAI(false)} />}
       {toast && <Notification>{toast}</Notification>}
     </div>
   );
