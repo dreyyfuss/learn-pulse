@@ -15,6 +15,7 @@ import com.courseservice.exception.NotOwnerException;
 import com.courseservice.models.Course;
 import com.courseservice.models.Enrolment;
 import com.courseservice.models.ModuleUnlock;
+import com.courseservice.events.producers.EnrolmentEventProducer;
 import com.courseservice.repositories.CourseRepository;
 import com.courseservice.repositories.EnrolmentRepository;
 import com.courseservice.repositories.LessonProgressRepository;
@@ -49,6 +50,7 @@ class EnrolmentServiceTest {
     @Mock ModuleUnlockRepository moduleUnlockRepository;
     @Mock LessonRepository lessonRepository;
     @Mock LessonProgressRepository lessonProgressRepository;
+    @Mock EnrolmentEventProducer enrolmentEventProducer;
 
     @InjectMocks EnrolmentService enrolmentService;
 

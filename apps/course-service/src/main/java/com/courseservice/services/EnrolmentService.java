@@ -8,6 +8,7 @@ import com.courseservice.dto.response.PageResponse;
 import com.courseservice.dto.response.StartEnrolmentResponse;
 import com.courseservice.enums.CourseStatus;
 import com.courseservice.enums.CourseVisibility;
+import com.courseservice.events.producers.EnrolmentEventProducer;
 import com.courseservice.exception.AlreadyEnrolledException;
 import com.courseservice.exception.EnrolmentCodeInvalidException;
 import com.courseservice.exception.NotOwnerException;
@@ -41,6 +42,7 @@ public class EnrolmentService {
     private final ModuleUnlockRepository moduleUnlockRepository;
     private final LessonRepository lessonRepository;
     private final LessonProgressRepository lessonProgressRepository;
+    private final EnrolmentEventProducer enrolmentEventProducer;
 
     @Transactional
     public EnrolmentResponse enrol(EnrolRequest req, UUID userId) {
@@ -65,6 +67,7 @@ public class EnrolmentService {
         enrolment.setUserId(userId);
         enrolment.setCourse(course);
         enrolmentRepository.save(enrolment);
+        enrolmentEventProducer.userEnrolled(enrolment);
 
         return EnrolmentResponse.from(enrolment);
     }
@@ -130,6 +133,7 @@ public class EnrolmentService {
         enrolment.setUserId(req.userId());
         enrolment.setCourse(course);
         enrolmentRepository.save(enrolment);
+        enrolmentEventProducer.userEnrolled(enrolment);
 
         return EnrolmentResponse.from(enrolment);
     }

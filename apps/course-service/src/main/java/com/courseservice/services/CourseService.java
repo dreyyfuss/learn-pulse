@@ -8,6 +8,7 @@ import com.courseservice.dto.response.CreateCourseResponse;
 import com.courseservice.dto.response.PageResponse;
 import com.courseservice.enums.CourseStatus;
 import com.courseservice.enums.CourseVisibility;
+import com.courseservice.events.producers.CourseEventProducer;
 import com.courseservice.exception.CourseAlreadyStartedException;
 import com.courseservice.exception.CourseNotPublishableException;
 import com.courseservice.exception.NotOwnerException;
@@ -34,6 +35,7 @@ public class CourseService {
     private static final SecureRandom RNG = new SecureRandom();
 
     private final CourseRepository courseRepository;
+    private final CourseEventProducer courseEventProducer;
 
     @Transactional
     public CreateCourseResponse create(CreateCourseRequest req, UUID instructorId) {
@@ -122,7 +124,9 @@ public class CourseService {
 
         course.setStatus(CourseStatus.PUBLISHED);
         course.setPublishedAt(LocalDateTime.now());
-        return CourseSummaryResponse.from(courseRepository.save(course));
+        Course saved = courseRepository.save(course);
+        courseEventProducer.publishCourse(saved);
+        return CourseSummaryResponse.from(saved);
     }
 
     @Caching(evict = {

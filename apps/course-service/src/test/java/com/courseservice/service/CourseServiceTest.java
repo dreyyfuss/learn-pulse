@@ -15,6 +15,7 @@ import com.courseservice.exception.ResourceNotFoundException;
 import com.courseservice.models.Course;
 import com.courseservice.models.Lesson;
 import com.courseservice.models.Module;
+import com.courseservice.events.producers.CourseEventProducer;
 import com.courseservice.repositories.CourseRepository;
 import com.courseservice.services.CourseService;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class CourseServiceTest {
 
     @Mock
     CourseRepository courseRepository;
+    @Mock
+    CourseEventProducer courseEventProducer;
 
     @InjectMocks
     CourseService courseService;
