@@ -24,6 +24,23 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: email-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        isolation.level: read_committed
+        max.poll.records: 10
+
+mailgun:
+  api-key: ${MAILGUN_API_KEY:}
+  domain: ${MAILGUN_DOMAIN:sandbox.mailgun.org}
+  from: ${MAILGUN_FROM:noreply@learnpulse.dev}
+
 server:
   port: 8081
 

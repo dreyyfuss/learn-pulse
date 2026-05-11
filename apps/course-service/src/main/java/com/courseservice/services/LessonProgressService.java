@@ -2,6 +2,9 @@ package com.courseservice.services;
 
 import com.courseservice.dto.response.LessonCompleteResponse;
 import com.courseservice.enums.EnrolmentStatus;
+import com.courseservice.events.dto.CourseCompletedEvent;
+import com.courseservice.events.dto.ModuleUnlockedEvent;
+import com.courseservice.events.producers.CourseEventProducer;
 import com.courseservice.exception.LessonOutOfOrderException;
 import com.courseservice.exception.ModuleLockedForUserException;
 import com.courseservice.exception.ResourceNotFoundException;
@@ -11,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +30,7 @@ public class LessonProgressService {
     private final LessonProgressRepository lessonProgressRepository;
     private final ModuleUnlockRepository moduleUnlockRepository;
     private final ModuleRepository moduleRepository;
+    private final CourseEventProducer courseEventProducer;
 
     @Transactional
     public LessonCompleteResponse complete(UUID lessonId, UUID userId) {
@@ -103,17 +108,45 @@ public class LessonProgressService {
                 .filter(m -> m.getOrderIndex() > module.getOrderIndex())
                 .findFirst().orElse(null);
 
+        String now = Instant.now().toString();
+
         if (nextModule != null) {
             ModuleUnlock unlock = new ModuleUnlock();
             unlock.setEnrolment(enrolment);
             unlock.setModule(nextModule);
             moduleUnlockRepository.save(unlock);
+
+            courseEventProducer.emitModuleUnlocked(
+                    ModuleUnlockedEvent.builder()
+                            .eventId(UUID.randomUUID().toString())
+                            .occurredAt(now)
+                            .userId(enrolment.getUserId())
+                            .courseId(courseId)
+                            .enrolmentId(enrolment.getId())
+                            .unlockedModuleId(nextModule.getId())
+                            .unlockedModuleTitle(nextModule.getTitle())
+                            .unlockedModuleOrder(nextModule.getOrderIndex())
+                            .build()
+            );
+
             return new LessonCompleteResponse(lesson.getId(), progress.getCompletedAt(), nextModule.getId(), false);
         }
 
         enrolment.setStatus(EnrolmentStatus.COMPLETED);
         enrolment.setCompletedAt(LocalDateTime.now());
         enrolmentRepository.save(enrolment);
+
+        courseEventProducer.emitCourseCompleted(
+                CourseCompletedEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .occurredAt(now)
+                        .userId(enrolment.getUserId())
+                        .courseId(courseId)
+                        .enrolmentId(enrolment.getId())
+                        .completedAt(now)
+                        .build()
+        );
+
         return new LessonCompleteResponse(lesson.getId(), progress.getCompletedAt(), null, true);
     }
 }

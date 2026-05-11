@@ -5,6 +5,7 @@ import com.courseservice.enums.CourseVisibility;
 import com.courseservice.enums.EnrolmentStatus;
 import com.courseservice.exception.LessonOutOfOrderException;
 import com.courseservice.exception.ModuleLockedForUserException;
+import com.courseservice.events.producers.CourseEventProducer;
 import com.courseservice.models.*;
 import com.courseservice.repositories.*;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class LessonProgressServiceTest {
     @Mock LessonProgressRepository lessonProgressRepository;
     @Mock ModuleUnlockRepository moduleUnlockRepository;
     @Mock ModuleRepository moduleRepository;
+    @Mock CourseEventProducer courseEventProducer;
 
     @InjectMocks LessonProgressService lessonProgressService;
 
