@@ -14,7 +14,7 @@ import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.util.backoff.ExponentialBackOffWithMaxRetries;
+import org.springframework.util.backoff.ExponentialBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,10 +61,9 @@ public class KafkaConsumerConfig {
                 (record, ex) -> new TopicPartition(record.topic() + ".dlq", 0)
         );
 
-        ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(5);
-        backOff.setInitialInterval(1_000);
-        backOff.setMultiplier(4.0);
-        backOff.setMaxInterval(300_000);
+        ExponentialBackOff backOff = new ExponentialBackOff(1_000L, 4.0);
+        backOff.setMaxInterval(300_000L);
+        backOff.setMaxElapsedTime(342_000L); // 5 retries: 1+4+16+64+256s
 
         return new DefaultErrorHandler(recoverer, backOff);
     }
