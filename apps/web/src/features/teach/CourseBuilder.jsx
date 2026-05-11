@@ -194,8 +194,9 @@ function EditCourseBuilder({ courseId }) {
     setModules(ordered);
     dragModuleIdx.current = null;
     try {
-      await Promise.all(
-        ordered.map(m => courseService.updateModule(courseId, m.id, { orderIndex: m.orderIndex }))
+      await courseService.reorderModules(
+        courseId,
+        ordered.map(m => ({ id: m.id, orderIndex: m.orderIndex }))
       );
     } catch {
       showToast('Failed to save module order.');
@@ -216,8 +217,10 @@ function EditCourseBuilder({ courseId }) {
     setModules(prev => prev.map((m, i) => i === mIdx ? { ...m, lessons: ordered } : m));
     dragLesson.current = { moduleId: null, idx: null };
     try {
-      await Promise.all(
-        ordered.map(l => courseService.updateLesson(courseId, targetModuleId, l.id, { orderIndex: l.orderIndex }))
+      await courseService.reorderLessons(
+        courseId,
+        targetModuleId,
+        ordered.map(l => ({ id: l.id, orderIndex: l.orderIndex }))
       );
     } catch {
       showToast('Failed to save lesson order.');

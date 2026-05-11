@@ -16,13 +16,15 @@ const courseService = {
   publish:  (id)         => api.post(`/api/courses/${id}/publish`).then(r => r.data),
   remove:   (id)         => api.delete(`/api/courses/${id}`),
 
-  createModule: (cId, body)          => api.post(`/api/courses/${cId}/modules`, body).then(r => r.data),
-  updateModule: (cId, mId, body)     => api.patch(`/api/courses/${cId}/modules/${mId}`, body).then(r => r.data),
-  deleteModule: (cId, mId)           => api.delete(`/api/courses/${cId}/modules/${mId}`),
+  createModule:  (cId, body)          => api.post(`/api/courses/${cId}/modules`, body).then(r => r.data),
+  updateModule:  (cId, mId, body)     => api.patch(`/api/courses/${cId}/modules/${mId}`, body).then(r => r.data),
+  deleteModule:  (cId, mId)           => api.delete(`/api/courses/${cId}/modules/${mId}`),
+  reorderModules: (cId, modules)      => api.put(`/api/courses/${cId}/modules/reorder`, { modules }),
 
-  createLesson: (cId, mId, body)          => api.post(`/api/courses/${cId}/modules/${mId}/lessons`, body).then(r => r.data),
-  updateLesson: (cId, mId, lId, body)     => api.patch(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`, body).then(r => r.data),
-  deleteLesson: (cId, mId, lId)           => api.delete(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`),
+  createLesson:  (cId, mId, body)          => api.post(`/api/courses/${cId}/modules/${mId}/lessons`, body).then(r => r.data),
+  updateLesson:  (cId, mId, lId, body)     => api.patch(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`, body).then(r => r.data),
+  deleteLesson:  (cId, mId, lId)           => api.delete(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`),
+  reorderLessons: (cId, mId, lessons)      => api.put(`/api/courses/${cId}/modules/${mId}/lessons/reorder`, { lessons }),
 };
 
 export default courseService;
