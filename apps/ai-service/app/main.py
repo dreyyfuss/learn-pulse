@@ -2,15 +2,34 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.chat import router as chat_router
+from app.config.settings import settings
+from app.kafka.consumer import CoursePublishedConsumer
+from app.rag.chunker import TextChunker
+from app.rag.embedder import Embedder
+from app.rag.indexer import CourseIndexer
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Phase 4: start aiokafka consumer for course.published here
+    embedder = Embedder()
+    embedder.load()  # downloads/loads model once at startup
+
+    chunker = TextChunker(
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+    )
+    indexer = CourseIndexer(embedder=embedder, chunker=chunker)
+
+    consumer = CoursePublishedConsumer(indexer=indexer)
+    await consumer.start()
     yield
-    # Phase 4: graceful consumer shutdown here
+    await consumer.stop()
 
 
 app = FastAPI(title="LearnPulse AI Service", version="0.1.0", lifespan=lifespan)
+
+app.include_router(chat_router)
 
 
 @app.get("/healthz")
