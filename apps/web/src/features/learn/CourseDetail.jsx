@@ -22,6 +22,13 @@ export default function CourseDetail() {
   const [codeError, setCodeError]   = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast]           = useState('');
+  const [openModules, setOpenModules] = useState(() => new Set());
+
+  const toggleModule = id => setOpenModules(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const showToast = (msg, ms = 3000) => { setToast(msg); setTimeout(() => setToast(''), ms); };
 
@@ -29,6 +36,7 @@ export default function CourseDetail() {
     Promise.all([courseService.get(id), enrolmentService.listMine()])
       .then(([courseData, enrolData]) => {
         setCourse(courseData);
+        setOpenModules(new Set((courseData.modules ?? []).map(m => m.id)));
         const courseId = courseData.courseId ?? courseData.id;
         const match = (enrolData.items ?? []).find(e => e.courseId === courseId);
         setEnrolment(match ?? null);
@@ -169,28 +177,33 @@ export default function CourseDetail() {
 
       <h2 className="section-head" style={{ marginTop: 0 }}>Course content</h2>
       <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
-        {(course.modules ?? []).map(m => (
-          <div key={m.moduleId} className="module-block">
-            <div className="module-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Icon name="chevron-down" size={15} color="var(--ink-3)" />
-                <span className="mod-title">{m.title}</span>
-              </div>
-              <span className="mod-count">{(m.lessons ?? []).length} lessons</span>
-            </div>
-            <div>
-              {(m.lessons ?? []).map((l, idx) => (
-                <div key={l.lessonId} className="lesson-item" style={{ cursor: 'default' }}>
-                  <div className="lesson-dot">{idx + 1}</div>
-                  <span>{l.title}</span>
-                  <span className="lesson-time" style={{ textTransform: 'capitalize', fontSize: 12 }}>
-                    {l.contentType?.toLowerCase() ?? ''}
-                  </span>
+        {(course.modules ?? []).map(m => {
+          const isOpen = openModules.has(m.id);
+          return (
+            <div key={m.id} className="module-block">
+              <div className="module-header" style={{ cursor: 'pointer' }} onClick={() => toggleModule(m.id)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Icon name="chevron-down" size={15} color="var(--ink-3)" style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                  <span className="mod-title">{m.title}</span>
                 </div>
-              ))}
+                <span className="mod-count">{(m.lessons ?? []).length} lessons</span>
+              </div>
+              {isOpen && (
+                <div>
+                  {(m.lessons ?? []).map((l, idx) => (
+                    <div key={l.lessonId} className="lesson-item" style={{ cursor: 'default' }}>
+                      <div className="lesson-dot">{idx + 1}</div>
+                      <span>{l.title}</span>
+                      <span className="lesson-time" style={{ textTransform: 'capitalize', fontSize: 12 }}>
+                        {l.contentType?.toLowerCase() ?? ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showModal && (
