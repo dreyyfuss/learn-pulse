@@ -291,7 +291,7 @@ body { margin: 0; background: var(--paper); }
 .role-option .ro-sub { font-size: 12px; color: var(--ink-3); }
 
 /* ── Course player ── */
-.player-shell { display: grid; grid-template-columns: 1fr 300px; gap: 28px; align-items: start; }
+
 .video-block {
   background: var(--ink); border-radius: 14px; aspect-ratio: 16/9;
   display: flex; flex-direction: column; justify-content: space-between; padding: 28px;
@@ -309,7 +309,7 @@ body { margin: 0; background: var(--paper); }
 .scrub-fill { height: 100%; background: var(--coral); border-radius: 999px; }
 .vid-time { font-family: var(--font-mono); font-size: 11px; color: rgba(251,248,243,.6); }
 
-.lesson-sidebar { position: sticky; top: 20px; }
+.lesson-sidebar { position: fixed; top: 60px; right: 0; width: 320px; bottom: 64px; overflow-y: auto; border-left: 1px solid var(--rule); background: #fff; }
 .lesson-tree { background: #fff; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; max-height: calc(100vh - 120px); overflow-y: auto; }
 .lesson-tree-head { padding: 14px 16px; border-bottom: 1px solid var(--rule); }
 .lesson-tree-head .lt-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-4); font-weight: 600; }
@@ -346,9 +346,10 @@ body { margin: 0; background: var(--paper); }
 .attachments { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
 .attachment-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--indigo); }
 .lesson-footer {
-  position: sticky; bottom: 0; background: rgba(251,248,243,.92); backdrop-filter: blur(8px);
-  border-top: 1px solid var(--rule); padding: 14px 44px;
-  display: flex; align-items: center; justify-content: space-between; margin: 0 -44px;
+  position: fixed; bottom: 0; left: 260px; right: 0; z-index: 50;
+  background: rgba(251,248,243,.96); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--rule); padding: 14px 60px;
+  display: flex; align-items: center; justify-content: space-between;
 }
 
 /* ── Builder ── */
