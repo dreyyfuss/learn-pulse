@@ -1,6 +1,7 @@
 package com.courseservice.controllers;
 
 import com.courseservice.dto.request.CreateModuleRequest;
+import com.courseservice.dto.request.ReorderModulesRequest;
 import com.courseservice.dto.request.UpdateModuleRequest;
 import com.courseservice.dto.response.ApiResponse;
 import com.courseservice.dto.response.ModuleDetailResponse;
@@ -32,6 +33,17 @@ public class ModuleController {
         UUID instructorId = principal(auth).getId();
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(moduleService.create(courseId, req, instructorId), "Module created"));
+    }
+
+    @PutMapping("/reorder")
+    @PreAuthorize("hasRole('INSTRUCTOR')")
+    public ResponseEntity<Void> reorder(
+            @PathVariable UUID courseId,
+            @RequestBody ReorderModulesRequest req,
+            Authentication auth) {
+        UUID instructorId = principal(auth).getId();
+        moduleService.reorder(courseId, req, instructorId);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}")

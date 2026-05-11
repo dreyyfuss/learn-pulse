@@ -2,6 +2,7 @@ package com.courseservice.services;
 
 import com.courseservice.dto.request.AttachmentRequest;
 import com.courseservice.dto.request.CreateLessonRequest;
+import com.courseservice.dto.request.ReorderLessonsRequest;
 import com.courseservice.dto.request.UpdateLessonRequest;
 import com.courseservice.dto.response.LessonDetailResponse;
 import com.courseservice.exception.ResourceNotFoundException;
@@ -66,6 +67,16 @@ public class LessonService {
         if (req.orderIndex() != null)  lesson.setOrderIndex(req.orderIndex());
 
         return LessonDetailResponse.from(lessonRepository.save(lesson));
+    }
+
+    @Transactional
+    public void reorder(UUID courseId, UUID moduleId, ReorderLessonsRequest req, UUID instructorId) {
+        courseService.loadAndGuard(courseId, instructorId);
+        loadModuleInCourse(moduleId, courseId);
+        lessonRepository.shiftOrderIndicesUp(moduleId);
+        for (var item : req.lessons()) {
+            lessonRepository.updateOrderIndex(item.id(), item.orderIndex());
+        }
     }
 
     @Transactional

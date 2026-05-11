@@ -1,6 +1,7 @@
 package com.courseservice.services;
 
 import com.courseservice.dto.request.CreateModuleRequest;
+import com.courseservice.dto.request.ReorderModulesRequest;
 import com.courseservice.dto.request.UpdateModuleRequest;
 import com.courseservice.dto.response.ModuleDetailResponse;
 import com.courseservice.exception.ResourceNotFoundException;
@@ -43,6 +44,14 @@ public class ModuleService {
         if (req.orderIndex() != null)  module.setOrderIndex(req.orderIndex());
 
         return ModuleDetailResponse.from(moduleRepository.save(module));
+    }
+
+    @Transactional
+    public void reorder(UUID courseId, ReorderModulesRequest req, UUID instructorId) {
+        courseService.loadAndGuard(courseId, instructorId);
+        for (var item : req.modules()) {
+            moduleRepository.updateOrderIndex(item.id(), item.orderIndex());
+        }
     }
 
     @Transactional
