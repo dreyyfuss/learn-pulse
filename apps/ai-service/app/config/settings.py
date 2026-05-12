@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,11 +11,8 @@ class Settings(BaseSettings):
     kafka_topic_course_published: str = "course.published"
 
     cerebras_api_key: str = ""
-    cerebras_model: str = "llama-3.3-70b"
+    cerebras_model: str = "llama-3.1-8b"
 
-    # Local model used for embeddings.
-    # Cerebras does not expose an embeddings API, so sentence-transformers
-    # is always used; swap the model name here to try a different local model.
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     chunk_size: int = 400
     chunk_overlap: int = 50
@@ -22,5 +21,19 @@ class Settings(BaseSettings):
     chroma_port: int = 8000
     chroma_collection: str = "learnpulse_courses"
 
+    redis_url: str = "redis://localhost:6379"
+
+    service_auth_secret: str = "change-me"
+    course_service_url: str = "http://localhost:8080"
+
+    rag_top_k: int = 5
+    chat_history_window: int = 10
+    chat_session_ttl_seconds: int = 604800  # 7 days
+
 
 settings = Settings()
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()

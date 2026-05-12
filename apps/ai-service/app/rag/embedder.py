@@ -22,7 +22,7 @@ class Embedder:
     def load(self) -> None:
         logger.info("Loading embedding model %r", settings.embedding_model)
         self._model = SentenceTransformer(settings.embedding_model)
-        dim = self._model.get_sentence_embedding_dimension()
+        dim = self._model.get_embedding_dimension()
         logger.info("Embedding model loaded dim=%d", dim)
 
     def embed(self, texts: list[str]) -> list[list[float]]:

@@ -1,35 +1,20 @@
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app.api.chat import router as chat_router
-from app.config.settings import settings
-from app.kafka.consumer import CoursePublishedConsumer
-from app.rag.chunker import TextChunker
-from app.rag.embedder import Embedder
-from app.rag.indexer import CourseIndexer
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    embedder = Embedder()
-    embedder.load()  # downloads/loads model once at startup
-
-    chunker = TextChunker(
-        chunk_size=settings.chunk_size,
-        chunk_overlap=settings.chunk_overlap,
-    )
-    indexer = CourseIndexer(embedder=embedder, chunker=chunker)
-
-    consumer = CoursePublishedConsumer(indexer=indexer)
-    await consumer.start()
-    yield
-    await consumer.stop()
-
+from app.exceptions import EnrolmentError
+from app.lifespan import lifespan
+from app.middleware.logging import RequestIDMiddleware
 
 app = FastAPI(title="LearnPulse AI Service", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(RequestIDMiddleware)
 app.include_router(chat_router)
+
+
+@app.exception_handler(EnrolmentError)
+async def enrolment_error_handler(request: Request, exc: EnrolmentError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
 @app.get("/healthz")
