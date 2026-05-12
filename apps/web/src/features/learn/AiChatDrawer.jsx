@@ -1,34 +1,66 @@
 import { useState, useRef, useEffect } from 'react';
 import Icon from '../../components/Icon';
+import aiService from '../../services/aiService';
 
-export default function AiChatDrawer({ courseName, onClose }) {
+export default function AiChatDrawer({ courseId, courseName, onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Hi — I can help you with anything in this course. What are you working through?', sources: [] },
-    { role: 'user', text: 'Can you explain why inserting at the head is O(1)?' },
-    { role: 'ai', text: "When you insert at the head of a linked list, you only need to do two things: point the new node's `next` to the current head, then move the head pointer to the new node. That's exactly two operations — no matter how long the list is. That constant number of steps is what O(1) means.", sources: ['M02·L01 — Inserting at the head', 'M01·L01 — What is a pointer, really?'], showSources: false },
+    { role: 'ai', text: 'Hi — I can help you with anything in this course. What are you working through?' },
   ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const bottomRef = useRef();
 
-  const send = () => {
+  useEffect(() => {
+    if (bottomRef.current) bottomRef.current.scrollTop = bottomRef.current.scrollHeight;
+  }, [messages, loading]);
+
+  const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
     setInput('');
     setMessages(m => [...m, { role: 'user', text: userMsg }]);
     setLoading(true);
-    setTimeout(() => {
-      setMessages(m => [...m, { role: 'ai', text: 'I\'m working through that — bear with me. (AI service not yet connected.)', sources: [], showSources: false }]);
-      setLoading(false);
-    }, 1000);
-  };
 
-  useEffect(() => {
-    if (bottomRef.current) bottomRef.current.scrollTop = bottomRef.current.scrollHeight;
-  }, [messages]);
+    let sid = sessionId;
+    if (!sid) {
+      try {
+        sid = await aiService.createSession(courseId);
+        setSessionId(sid);
+      } catch {
+        setMessages(m => [...m, { role: 'ai', text: 'Could not connect to the AI. Please try again.' }]);
+        setLoading(false);
+        return;
+      }
+    }
 
-  const toggleSources = (idx) => {
-    setMessages(m => m.map((msg, i) => i === idx ? { ...msg, showSources: !msg.showSources } : msg));
+    let replyStarted = false;
+
+    await aiService.streamMessage(courseId, sid, userMsg, {
+      onToken(token) {
+        if (!replyStarted) {
+          replyStarted = true;
+          setLoading(false);
+          setMessages(m => [...m, { role: 'ai', text: token }]);
+        } else {
+          setMessages(m => {
+            const copy = [...m];
+            const last = copy[copy.length - 1];
+            copy[copy.length - 1] = { ...last, text: last.text + token };
+            return copy;
+          });
+        }
+      },
+      onDone() {
+        setLoading(false);
+      },
+      onError() {
+        setLoading(false);
+        if (!replyStarted) {
+          setMessages(m => [...m, { role: 'ai', text: 'Something went wrong. Please try again.' }]);
+        }
+      },
+    });
   };
 
   return (
@@ -43,23 +75,16 @@ export default function AiChatDrawer({ courseName, onClose }) {
         </div>
         <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
       </div>
+
       <div className="ai-messages" ref={bottomRef}>
         {messages.map((msg, i) => (
-          <div key={i}>
-            <div className={`ai-bubble ${msg.role}`}>{msg.text}</div>
-            {msg.role === 'ai' && msg.sources?.length > 0 && (
-              <div className="ai-sources">
-                <button className="ai-sources-toggle" onClick={() => toggleSources(i)}>
-                  <Icon name={msg.showSources ? 'chevron-up' : 'chevron-down'} size={12} />
-                  {msg.showSources ? 'Hide' : 'Show'} sources ({msg.sources.length})
-                </button>
-                {msg.showSources && msg.sources.map((s, j) => <div key={j} className="ai-source-item">{s}</div>)}
-              </div>
-            )}
-          </div>
+          <div key={i} className={`ai-bubble ${msg.role}`}>{msg.text}</div>
         ))}
-        {loading && <div className="ai-bubble ai" style={{ color: 'var(--ink-3)', fontStyle: 'italic' }}>Thinking…</div>}
+        {loading && (
+          <div className="ai-bubble ai" style={{ color: 'var(--ink-3)', fontStyle: 'italic' }}>Thinking…</div>
+        )}
       </div>
+
       <div className="ai-input-bar">
         <textarea
           value={input}

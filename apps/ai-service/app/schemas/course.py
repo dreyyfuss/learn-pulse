@@ -2,16 +2,16 @@ from pydantic import BaseModel
 
 
 class Instructor(BaseModel):
-    id: int
+    id: str
     fullName: str
 
 
 class LessonSummary(BaseModel):
-    lessonId: int
+    lessonId: str
     title: str
     description: str | None = None
     contentType: str | None = None
-    moduleId: int
+    moduleId: str
     moduleTitle: str
     moduleDescription: str | None = None
 
@@ -21,7 +21,7 @@ class CoursePublishedEvent(BaseModel):
     eventType: str
     version: int
     occurredAt: str
-    courseId: int
+    courseId: str
     title: str
     instructor: Instructor
     lessons: list[LessonSummary]
