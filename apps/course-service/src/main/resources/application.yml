@@ -48,6 +48,8 @@ app:
     bucket: ${S3_BUCKET:learnpulse}
     endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
     region: ${S3_REGION:us-east-1}
+  service-auth:
+    secret: ${SERVICE_AUTH_SECRET:change-me-in-dev}
 
 server:
   port: 8080

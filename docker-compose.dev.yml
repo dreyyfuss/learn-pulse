@@ -78,6 +78,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 168
+      # Required for single-broker dev: default replication factor is 3,
+      # which can never be satisfied with one broker and silently breaks
+      # __consumer_offsets auto-creation.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
     volumes:
       - kafka-data:/var/lib/kafka/data
     ports:
@@ -252,6 +258,7 @@ services:
       context: ./apps/course-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
     networks:
       - learnpulse
     ports:
@@ -273,7 +280,7 @@ services:
       start_period: 120s
     labels:
       traefik.enable: "true"
-      # catch-all for /api/* — lower priority than user-svc and cert-svc
+      # catch-all for /api/* — lower priority than user-svc, cert-svc, and ai-svc
       traefik.http.routers.course-svc.rule: "PathPrefix(`/api`)"
       traefik.http.routers.course-svc.entrypoints: web
       traefik.http.routers.course-svc.priority: "10"
@@ -281,11 +288,70 @@ services:
       traefik.http.services.course-svc.loadbalancer.server.port: "8080"
     restart: unless-stopped
 
+  # ── Vector store ──────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma-data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      - learnpulse
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── AI Service ────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./apps/ai-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      REDIS_URL: redis://redis:6379
+      COURSE_SERVICE_URL: http://course-service:8080
+      SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+      CEREBRAS_MODEL: ${CEREBRAS_MODEL:-llama-3.1-8b}
+    networks:
+      - learnpulse
+    ports:
+      - "9000:9000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      chromadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.ai-svc.rule: "PathPrefix(`/api/ai`)"
+      traefik.http.routers.ai-svc.entrypoints: web
+      traefik.http.routers.ai-svc.priority: "20"
+      traefik.http.routers.ai-svc.middlewares: jwt-auth@file
+      traefik.http.services.ai-svc.loadbalancer.server.port: "9000"
+    restart: unless-stopped
+
 volumes:
   mysql-data:
   redis-data:
   kafka-data:
   minio-data:
+  chroma-data:
 
 networks:
   learnpulse:

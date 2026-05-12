@@ -230,7 +230,7 @@ export default function CoursePlayer() {
         <Icon name="sparkles" size={15} /> Ask AI
       </button>
 
-      {showAI && <AiChatDrawer courseName={courseName} onClose={() => setShowAI(false)} />}
+      {showAI && <AiChatDrawer courseId={courseId} courseName={courseName} onClose={() => setShowAI(false)} />}
       {toast && <Notification>{toast}</Notification>}
     </div>
   );
