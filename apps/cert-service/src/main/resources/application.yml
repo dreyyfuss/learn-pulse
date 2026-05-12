@@ -22,12 +22,14 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9094}
     consumer:
-      group-id: cert-service
+      group-id: certificate-service
       auto-offset-reset: earliest
+      enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
-        spring.json.trusted.packages: com.certservice.events.dto
+        isolation.level: read_committed
+        max.poll.records: 5
 
 server:
   port: 8082
@@ -46,6 +48,10 @@ app:
     bucket: ${S3_BUCKET:learnpulse}
     endpoint: ${S3_ENDPOINT:}
     region: ${S3_REGION:us-east-1}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+  user-service-url: ${USER_SERVICE_URL:http://user-service:8081}
+  course-service-url: ${COURSE_SERVICE_URL:http://course-service:8080}
 
 logging:
   level:

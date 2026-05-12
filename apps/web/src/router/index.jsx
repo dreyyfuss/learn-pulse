@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
 import AppLayout from '../components/AppLayout';
+import ErrorPage from '../components/ErrorPage';
 import LoginPage from '../features/auth/LoginPage';
 import RegisterPage from '../features/auth/RegisterPage';
 import LearnDashboard from '../features/learn/LearnDashboard';
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
   { path: 'register', element: <RegisterPage /> },
   {
     element: <AppLayout />,
+    errorElement: <ErrorPage />,
     children: [
       {
         element: <ProtectedRoute />,
