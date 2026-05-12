@@ -2,6 +2,7 @@ package com.userservice.kafka;
 
 import com.userservice.domain.idempotency.IdempotencyLog;
 import com.userservice.domain.user.User;
+import com.userservice.kafka.dto.CertificateGeneratedEvent;
 import com.userservice.kafka.dto.ModuleUnlockedEvent;
 import com.userservice.kafka.dto.UserEnrolledEvent;
 import com.userservice.repository.IdempotencyLogRepository;
@@ -20,8 +21,8 @@ import java.util.UUID;
 public class EmailService {
 
     private final IdempotencyLogRepository idempotencyLogRepository;
-    private final UserRepository userRepository;
-    private final MailgunClient mailgunClient;
+    private final UserRepository           userRepository;
+    private final MailgunClient            mailgunClient;
 
     @Transactional
     public void processUserEnrolled(UserEnrolledEvent event, String eventId, String topic) {
@@ -62,5 +63,28 @@ public class EmailService {
         idempotencyLogRepository.save(new IdempotencyLog(eventId, topic));
         log.info("Module-unlocked email sent userId={} moduleTitle={} eventId={}",
                 event.getUserId(), event.getUnlockedModuleTitle(), eventId);
+    }
+
+    @Transactional
+    public void processCertificateGenerated(CertificateGeneratedEvent event, String eventId, String topic) {
+        User user = userRepository.findById(UUID.fromString(event.getUserId()))
+                .orElseThrow(() -> new RuntimeException("User not found: " + event.getUserId()));
+
+        mailgunClient.send(
+                user.getEmail(),
+                user.getFullName(),
+                "certificate_delivery",
+                Map.of(
+                        "userName",      user.getFullName(),
+                        "courseId",      event.getCourseId(),
+                        "certificateId", event.getCertificateId(),
+                        "downloadUrl",   event.getDownloadUrl() != null
+                                                 ? event.getDownloadUrl() : ""
+                )
+        );
+
+        idempotencyLogRepository.save(new IdempotencyLog(eventId, topic));
+        log.info("Certificate email sent userId={} certId={} eventId={}",
+                event.getUserId(), event.getCertificateId(), eventId);
     }
 }

@@ -1,0 +1,164 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <title>Certificate of Completion</title>
+  <style type="text/css">
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background-color: #ffffff;
+    }
+    .page {
+      width: 297mm;
+      height: 210mm;
+      position: relative;
+      box-sizing: border-box;
+      padding: 20mm 24mm;
+    }
+    .border-outer {
+      position: absolute;
+      top: 8mm; left: 8mm; right: 8mm; bottom: 8mm;
+      border: 3px solid #1a1a2e;
+    }
+    .border-inner {
+      position: absolute;
+      top: 11mm; left: 11mm; right: 11mm; bottom: 11mm;
+      border: 1px solid #c9a96e;
+    }
+    .content {
+      position: relative;
+      text-align: center;
+      padding: 16mm 28mm;
+    }
+    .brand {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13pt;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: #1a1a2e;
+      text-transform: uppercase;
+      margin-bottom: 4mm;
+    }
+    .divider {
+      width: 60mm;
+      height: 1px;
+      background-color: #c9a96e;
+      margin: 0 auto 6mm auto;
+    }
+    .certificate-title {
+      font-size: 28pt;
+      color: #1a1a2e;
+      margin-bottom: 3mm;
+      letter-spacing: 2px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #555555;
+      margin-bottom: 8mm;
+      font-style: italic;
+    }
+    .learner-name {
+      font-size: 32pt;
+      color: #c9a96e;
+      margin-bottom: 4mm;
+      font-style: italic;
+    }
+    .completion-text {
+      font-size: 11pt;
+      color: #333333;
+      margin-bottom: 3mm;
+    }
+    .course-name {
+      font-size: 18pt;
+      color: #1a1a2e;
+      font-weight: bold;
+      margin-bottom: 8mm;
+    }
+    .footer-row {
+      margin-top: 10mm;
+      display: -fs-table;
+      width: 100%;
+    }
+    .footer-col {
+      display: -fs-table-cell;
+      width: 33%;
+      text-align: center;
+      vertical-align: bottom;
+      padding: 0 4mm;
+    }
+    .footer-label {
+      font-size: 8pt;
+      color: #888888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-top: 1px solid #cccccc;
+      padding-top: 2mm;
+      margin-top: 2mm;
+    }
+    .footer-value {
+      font-size: 10pt;
+      color: #333333;
+    }
+    .cert-id {
+      font-size: 7pt;
+      color: #aaaaaa;
+      margin-top: 6mm;
+      font-family: "Courier New", monospace;
+    }
+    .logo-badge {
+      width: 54px;
+      height: 54px;
+      background-color: #1a1a2e;
+      border: 2px solid #c9a96e;
+      margin: 0 auto 4mm auto;
+      text-align: center;
+      line-height: 50px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 20pt;
+      font-weight: bold;
+      color: #c9a96e;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="border-outer"/>
+  <div class="border-inner"/>
+  <div class="content">
+    <div class="logo-badge">LP</div>
+    <div class="brand">LearnPulse</div>
+    <div class="divider"/>
+    <div class="certificate-title">Certificate of Completion</div>
+    <div class="subtitle">This is to certify that</div>
+    <div class="learner-name" th:text="${learnerName}">Learner Name</div>
+    <div class="completion-text">has successfully completed the course</div>
+    <div class="course-name" th:text="${courseName}">Course Title</div>
+
+    <div class="footer-row">
+      <div class="footer-col">
+        <div class="footer-value" th:text="${instructorName}">Instructor Name</div>
+        <div class="footer-label">Instructor</div>
+      </div>
+      <div class="footer-col">
+        <div class="footer-value" th:text="${issuedAt}">1 January 2026</div>
+        <div class="footer-label">Date of Completion</div>
+      </div>
+      <div class="footer-col">
+        <div class="footer-value">LearnPulse</div>
+        <div class="footer-label">Issued by</div>
+      </div>
+    </div>
+
+    <div class="cert-id" th:text="'Certificate ID: ' + ${certificateUuid}">Certificate ID: ...</div>
+  </div>
+</div>
+</body>
+</html>

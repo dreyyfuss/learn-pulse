@@ -78,6 +78,9 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes:
       - kafka-data:/var/lib/kafka/data
     ports:
@@ -180,6 +183,8 @@ services:
       context: ./apps/user-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/learnpulse_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
     networks:
       - learnpulse
     ports:
@@ -219,6 +224,9 @@ services:
       context: ./apps/cert-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/learnpulse_certs?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
+      S3_ENDPOINT: "http://minio:9000"
     networks:
       - learnpulse
     ports:
@@ -252,6 +260,9 @@ services:
       context: ./apps/course-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/course_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
+      S3_ENDPOINT: "http://minio:9000"
     networks:
       - learnpulse
     ports:

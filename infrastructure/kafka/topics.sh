@@ -24,14 +24,14 @@ create() {
 
 echo "Creating LearnPulse Kafka topics on $BOOTSTRAP ..."
 
-# Main topics — partitions and retention per kafka-events.md §2
+# Main topics
 create course.published        3  $MS_30_DAYS
 create user.enrolled           6  $MS_30_DAYS
 create module.unlocked         6  $MS_30_DAYS
 create course.completed        6  $MS_90_DAYS
 create certificate.generated   6  $MS_90_DAYS
 
-# Dead-letter queues — 1 partition each; same retention as source topic
+# Dead-letter queues
 create course.published.dlq         1  $MS_30_DAYS
 create user.enrolled.dlq            1  $MS_30_DAYS
 create module.unlocked.dlq          1  $MS_30_DAYS
