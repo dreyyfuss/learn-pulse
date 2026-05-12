@@ -408,7 +408,72 @@ For UI simplicity the frontend calls Spring Boot, not FastAPI directly:
 
 ---
 
-## 11. Health & Ops
+## 11. Content Upload & Retrieval
+
+All endpoints share the base path `/api/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}`.
+
+### POST `.../content/upload-url`
+Returns a 15-minute presigned PUT URL for direct browser-to-S3 upload.
+
+**Auth:** `INSTRUCTOR` (must own the course)  
+**Request:** `{ "mimeType": "video/mp4" }`  
+**Response 200:** `{ "data": { "uploadUrl": "http://...", "objectKey": "lessons/{id}/content.mp4" } }`
+
+---
+
+### POST `.../content/confirm`
+Persists the S3 object key on the lesson record after the browser PUT succeeds.
+
+**Auth:** `INSTRUCTOR` (must own the course)  
+**Request:** `{ "objectKey": "lessons/{id}/content.mp4" }`  
+**Response 204**
+
+---
+
+### GET `.../content`
+Returns a 1-hour presigned GET URL. Falls back to `fallbackUrl` (`content_url`) when no S3 key exists.
+
+**Auth:** Instructor (owns course) OR enrolled learner with module unlocked.  
+**Response 200:** `{ "data": { "contentType": "VIDEO", "presignedUrl": "...", "fallbackUrl": null } }`  
+**Errors:** `403` module not yet unlocked for learner.
+
+---
+
+### DELETE `.../content`
+Removes the S3 object and clears `content_key`.
+
+**Auth:** `INSTRUCTOR` (must own the course)  
+**Response 204**
+
+---
+
+### POST `.../attachments/upload-url`
+Returns a 15-minute presigned PUT URL for a supplementary lesson attachment.
+
+**Auth:** `INSTRUCTOR` (must own the course)  
+**Request:** `{ "fileName": "notes.pdf", "mimeType": "application/pdf" }`  
+**Response 200:** `{ "data": { "uploadUrl": "...", "objectKey": "lessons/{id}/attachments/notes.pdf" } }`
+
+---
+
+### POST `.../attachments/confirm`
+Creates a `LessonAttachment` record after upload.
+
+**Auth:** `INSTRUCTOR` (must own the course)  
+**Request:** `{ "objectKey": "lessons/{id}/attachments/notes.pdf", "fileName": "notes.pdf", "mimeType": "application/pdf" }`  
+**Response 201:** `AttachmentResponse { id, fileName, s3Key, mimeType }`
+
+---
+
+### GET `.../attachments/{attachmentId}/download-url`
+Returns a 1-hour presigned GET URL for an attachment. Returns legacy `s3_url` directly if no S3 key is set.
+
+**Auth:** Instructor (owns course) OR enrolled learner with module unlocked.  
+**Response 200:** `{ "data": { "url": "http://..." } }`
+
+---
+
+## 12. Health & Ops
 
 | Endpoint | Purpose |
 |---|---|

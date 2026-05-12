@@ -39,11 +39,11 @@ An AI-powered Study Assistant, built as a separate FastAPI microservice, provide
 - Provide instructors with per-learner and aggregate analytics on their courses.
 - Provide admins with platform-wide management capabilities.
 - Offer a per-course AI Study Assistant powered by RAG.
+- Allow instructors to upload lesson content (videos, documents, Markdown articles) directly to the platform; serve content securely to learners via time-limited presigned URLs.
 
 ### Non-Goals
 - Payments and billing (out of scope).
 - Native mobile applications (web only).
-- File storage/upload for lesson content (only the URL/metadata is stored; actual files are managed externally in S3).
 - Updating a course after a learner has started it.
 - Sub-module hierarchies or lessons that exist outside a module.
 
@@ -274,6 +274,41 @@ The two modes map to completely separate route namespaces in React:
 - Each certificate entry shows: course name, completion date, and a **Download** button.
 - The download button triggers a signed S3 URL download of the PDF certificate.
 - Certificates contain: learner full name, course name, instructor full name, completion date, certificate UUID, and the LearnPulse platform logo.
+
+---
+
+### 5.9 Content Upload & Delivery
+
+#### Overview
+Instructors upload lesson content directly into the platform. Files are stored in MinIO (S3-compatible) and served to learners via time-limited presigned URLs. The upload path goes browser → MinIO directly (not through the backend), keeping the Spring service free of multipart streaming load.
+
+#### Content Types
+
+| ContentType | What is uploaded | How the learner sees it |
+|---|---|---|
+| `VIDEO` | MP4 or WebM file | HTML5 `<video>` player with presigned GET URL |
+| `DOCUMENT` | PDF, DOCX, ZIP, etc. | Inline `<iframe>` PDF viewer + Download button |
+| `ARTICLE` | Markdown (`.md`) file | Fetched and rendered client-side with react-markdown |
+| `OTHER` | — | No upload UI; legacy `content_url` used as fallback |
+
+#### Upload Flow (Two-Step Presigned)
+1. Instructor selects content type and file (or writes Markdown) in the Course Builder.
+2. Browser calls `POST /api/courses/{cId}/modules/{mId}/lessons/{lId}/content/upload-url` with `{ mimeType }`.
+3. Backend returns `{ uploadUrl, objectKey }`. `uploadUrl` is a 15-minute presigned PUT URL pointing to `http://localhost:9010` (dev) or the production S3 endpoint.
+4. Browser PUTs the file directly to MinIO.
+5. Browser calls `POST .../content/confirm` with `{ objectKey }` to persist the key on the lesson.
+
+#### Retrieval Flow
+- `GET .../content` returns `{ contentType, presignedUrl, fallbackUrl }`.
+- `presignedUrl` is a 1-hour presigned GET URL generated from `lesson.content_key`.
+- `fallbackUrl` carries the legacy `lesson.content_url` (for lessons created before this feature). The viewer uses whichever is non-null.
+
+#### Access Control
+- Upload endpoints: `INSTRUCTOR` role + course ownership required.
+- Retrieval endpoints: authenticated user who either (a) owns the course as instructor, or (b) has an active enrolment with the lesson's module unlocked.
+
+#### Attachment Upload
+The same two-step presigned flow applies to supplementary lesson attachments. Keys are stored as `lesson_attachments.s3_key`; legacy `s3_url` is retained for attachments created before this feature.
 
 ---
 

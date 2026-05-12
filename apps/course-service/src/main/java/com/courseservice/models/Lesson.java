@@ -39,6 +39,9 @@ public class Lesson {
     @Column(name = "content_url", length = 1024)
     private String contentUrl;
 
+    @Column(name = "content_key", length = 1024)
+    private String contentKey;
+
     @Column(name = "order_index", nullable = false)
     private int orderIndex;
 

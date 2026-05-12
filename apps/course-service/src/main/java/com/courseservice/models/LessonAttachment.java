@@ -25,8 +25,11 @@ public class LessonAttachment {
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;
 
-    @Column(name = "s3_url", nullable = false, length = 1024)
+    @Column(name = "s3_url", length = 1024)
     private String s3Url;
+
+    @Column(name = "s3_key", length = 1024)
+    private String s3Key;
 
     @Column(name = "mime_type", length = 120)
     private String mimeType;

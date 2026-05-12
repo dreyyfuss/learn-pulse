@@ -4,6 +4,7 @@ import Icon from '../../components/Icon';
 import ProgressBar from '../../components/ProgressBar';
 import Notification from '../../components/Notification';
 import AiChatDrawer from './AiChatDrawer';
+import LessonContentViewer from '../../components/LessonContentViewer';
 import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
 import certificateService from '../../services/certificateService';
@@ -189,23 +190,12 @@ export default function CoursePlayer() {
         </button>
 
         <div>
-          {lesson?.contentType === 'VIDEO' && lesson?.contentUrl && (
-            <div className="video-block" style={{ padding: 0, background: 'transparent' }}>
-              <iframe
-                src={lesson.contentUrl}
-                title={lesson.title}
-                style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: 14 }}
-                allowFullScreen
-              />
-            </div>
-          )}
-
-          {lesson && lesson.contentType !== 'VIDEO' && lesson.contentUrl && (
-            <div style={{ marginBottom: 16 }}>
-              <a href={lesson.contentUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
-                <Icon name="file-text" size={14} /> Open resource
-              </a>
-            </div>
+          {lesson && (
+            <LessonContentViewer
+              courseId={courseId}
+              moduleId={mod?.moduleId}
+              lessonId={lesson.lessonId}
+            />
           )}
 
           {lesson && (
