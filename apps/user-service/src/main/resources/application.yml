@@ -48,10 +48,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 jwt:
   secret: ${JWT_SECRET:learnpulse-user-svc-dev-only-secret-key-not-for-prod-use}
