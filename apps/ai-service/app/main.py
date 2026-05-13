@@ -1,5 +1,10 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
+# Make all app.* loggers visible at INFO level in docker logs
+logging.getLogger("app").setLevel(logging.INFO)
 
 from app.api.chat import router as chat_router
 from app.exceptions import EnrolmentError

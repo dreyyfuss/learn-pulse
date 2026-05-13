@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     chat_history_window: int = 10
     chat_session_ttl_seconds: int = 604800  # 7 days
 
+    # MinIO direct access for content indexing
+    minio_endpoint: str = "http://minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    s3_bucket: str = "learnpulse"
+
+    # Groq Whisper transcription
+    groq_api_key: str = ""
+    groq_whisper_model: str = "whisper-large-v3-turbo"
+
 
 settings = Settings()
 

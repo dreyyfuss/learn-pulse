@@ -21,6 +21,7 @@ public record CoursePublishedEvent(
             String contentType,
             String moduleId,
             String moduleTitle,
-            String moduleDescription
+            String moduleDescription,
+            String contentKey
     ) {}
 }
