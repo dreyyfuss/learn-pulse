@@ -4,11 +4,13 @@ import com.courseservice.enums.OutboxStatus;
 import com.courseservice.models.OutboxEvent;
 import com.courseservice.repositories.OutboxRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -32,7 +34,13 @@ public class OutboxPublisher {
 
         for (OutboxEvent event : pending) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getPayload()).get();
+                ProducerRecord<String, String> record =
+                        new ProducerRecord<>(event.getTopic(), event.getPayload());
+                if (event.getTraceId() != null) {
+                    record.headers().add("trace-id",
+                            event.getTraceId().getBytes(StandardCharsets.UTF_8));
+                }
+                kafkaTemplate.send(record).get();
                 event.setStatus(OutboxStatus.SENT);
                 outboxRepository.save(event);
             } catch (InterruptedException e) {

@@ -37,8 +37,17 @@ public class CacheConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new GenericJackson2JsonRedisSerializer(cacheMapper)));
 
+        RedisCacheConfiguration analytics = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(60))
+                .disableCachingNullValues()
+                .computePrefixWith(cacheName -> "cache:" + cacheName + ":")
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new GenericJackson2JsonRedisSerializer(cacheMapper)));
+
         return builder -> builder
                 .withCacheConfiguration("courses", base)
-                .withCacheConfiguration("courses:list", base);
+                .withCacheConfiguration("courses:list", base)
+                .withCacheConfiguration("analytics:instructor", analytics)
+                .withCacheConfiguration("analytics:admin", analytics);
     }
 }

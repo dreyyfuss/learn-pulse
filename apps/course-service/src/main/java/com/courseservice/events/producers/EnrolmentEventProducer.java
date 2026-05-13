@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -43,6 +44,7 @@ public class EnrolmentEventProducer {
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setTopic("user.enrolled");
         outboxEvent.setPayload(payload);
+        outboxEvent.setTraceId(MDC.get("traceId"));
         outboxRepository.save(outboxEvent);
     }
 }

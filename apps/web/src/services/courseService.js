@@ -10,6 +10,7 @@ const courseService = {
   },
 
   listOwn:  ()           => api.get('/api/instructor/courses').then(r => r.data),
+  analytics:(id)         => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
   get:      (id)         => api.get(`/api/courses/${id}`).then(r => r.data),
   create:   (body)       => api.post('/api/courses', body).then(r => r.data),
   update:   (id, body)   => api.patch(`/api/courses/${id}`, body).then(r => r.data),

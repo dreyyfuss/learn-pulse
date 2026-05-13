@@ -17,6 +17,7 @@ import AdminOverview from '../features/admin/AdminOverview';
 import UserManagement from '../features/admin/UserManagement';
 import CourseManagement from '../features/admin/CourseManagement';
 import EnrolmentManagement from '../features/admin/EnrolmentManagement';
+import NotFound from '../features/NotFound';
 
 const router = createBrowserRouter([
   { index: true, element: <Navigate to="/learn/dashboard" replace /> },
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
       },
     ],
   },
+  { path: '*', element: <NotFound /> },
 ]);
 
 export default router;

@@ -1,5 +1,6 @@
 package com.courseservice.config;
 
+import com.courseservice.config.TraceFilter;
 import com.courseservice.security.HeaderAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(new TraceFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new HeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()

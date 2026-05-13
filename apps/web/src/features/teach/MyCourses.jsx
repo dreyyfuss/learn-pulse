@@ -4,6 +4,8 @@ import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import courseService from '../../services/courseService';
+import { getErrorMessage } from '../../utils/errorMessages';
+import { SkeletonTableRows } from '../../components/Skeleton';
 
 const EMPTY_FORM = { title: '', visibility: 'PUBLIC', description: '' };
 
@@ -23,7 +25,7 @@ export default function MyCourses() {
   useEffect(() => {
     courseService.listOwn()
       .then(data => setCourses(data.items ?? []))
-      .catch(err => setError(err.message || 'Could not load courses.'))
+      .catch(err => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -49,7 +51,7 @@ export default function MyCourses() {
       setShowCreate(false);
       navigate(`/teach/courses/${data.courseId}/edit`);
     } catch (err) {
-      setCreateError(err.message || 'Failed to create course.');
+      setCreateError(getErrorMessage(err));
       setCreating(false);
     }
   };
@@ -71,7 +73,9 @@ export default function MyCourses() {
       </div>
 
       {loading && (
-        <p style={{ color: 'var(--ink-3)', textAlign: 'center', padding: '60px 0' }}>Loading…</p>
+        <div className="table-wrap">
+          <SkeletonTableRows cols="1fr 120px 110px 130px 170px" widths={['70%','60%','50%','55%','80%']} count={4} />
+        </div>
       )}
 
       {error && (

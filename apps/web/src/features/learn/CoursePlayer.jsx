@@ -6,6 +6,8 @@ import Notification from '../../components/Notification';
 import AiChatDrawer from './AiChatDrawer';
 import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
+import { getErrorMessage } from '../../utils/errorMessages';
+import { SkeletonLine } from '../../components/Skeleton';
 
 export default function CoursePlayer() {
   const navigate = useNavigate();
@@ -64,7 +66,7 @@ export default function CoursePlayer() {
           if (first) setCurrentLessonId(first.lessonId);
         }
       })
-      .catch(err => setError(err.message || 'Could not load player.'))
+      .catch(err => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [courseId]);
 
@@ -93,12 +95,19 @@ export default function CoursePlayer() {
         if (willUnlock) setTimeout(() => setCurrentLessonId(nextLesson.lessonId), 800);
       }
     } catch (err) {
-      setToast('Could not mark complete: ' + err.message);
+      setToast(getErrorMessage(err));
       setTimeout(() => setToast(''), 3000);
     }
   };
 
-  if (loading) return <div className="main"><p style={{ color: 'var(--ink-3)' }}>Loading…</p></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+      <div className="main" style={{ flex: 1 }}>
+        <span className="skeleton" style={{ display: 'block', height: 360, borderRadius: 14, marginBottom: 20 }} />
+        <SkeletonLine width="50%" height={22} />
+      </div>
+    </div>
+  );
   if (error)   return <div className="main"><p style={{ color: 'var(--danger)' }}>{error}</p></div>;
 
   return (

@@ -2,6 +2,7 @@ package com.userservice.service;
 
 import com.userservice.domain.user.User;
 import com.userservice.dto.response.UserAdminView;
+import com.userservice.dto.response.UserStatsResponse;
 import com.userservice.enums.Role;
 import com.userservice.enums.UserStatus;
 import com.userservice.exception.AppException;
@@ -62,6 +63,17 @@ public class AdminUserService {
         userRepository.save(user);
         blacklistService.add(userId);
         return toAdminView(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserStatsResponse getUserStats() {
+        long learners       = userRepository.countByRole(Role.LEARNER);
+        long instructors    = userRepository.countByRole(Role.INSTRUCTOR);
+        long admins         = userRepository.countByRole(Role.ADMIN);
+        long totalUsers     = userRepository.count();
+        long activeUsers    = userRepository.countByStatus(UserStatus.ACTIVE);
+        long suspendedUsers = userRepository.countByStatus(UserStatus.SUSPENDED);
+        return new UserStatsResponse(totalUsers, learners, instructors, admins, activeUsers, suspendedUsers);
     }
 
     private User findOrThrow(UUID id) {

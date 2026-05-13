@@ -8,6 +8,8 @@ import Tag from '../../components/Tag';
 import useAuthStore from '../../store/authStore';
 import enrolmentService from '../../services/enrolmentService';
 import courseService from '../../services/courseService';
+import { getErrorMessage } from '../../utils/errorMessages';
+import { SkeletonCourseCard } from '../../components/Skeleton';
 
 export default function LearnDashboard() {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ export default function LearnDashboard() {
   const [enrolments, setEnrolments]             = useState([]);
   const [exploreCourses, setExploreCourses]     = useState([]);
   const [loading, setLoading]                   = useState(true);
+  const [error, setError]                       = useState(null);
   const [showStartModal, setShowStartModal]     = useState(false);
   const [pendingEnrolment, setPendingEnrolment] = useState(null);
   const [starting, setStarting]                 = useState(false);
@@ -33,7 +36,7 @@ export default function LearnDashboard() {
         );
         setExploreCourses(avail);
       })
-      .catch(() => {})
+      .catch(e => setError(getErrorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -54,7 +57,7 @@ export default function LearnDashboard() {
       navigate(`/learn/courses/${pendingEnrolment.courseId}/play`);
     } catch (err) {
       setShowStartModal(false);
-      setToast('Could not start: ' + err.message);
+      setToast(getErrorMessage(err));
       setTimeout(() => setToast(''), 3000);
     } finally {
       setStarting(false);
@@ -75,6 +78,12 @@ export default function LearnDashboard() {
           ? `Continue ${continueCourse.courseTitle}.`
           : 'Browse the catalogue to find your next course.'}
       </p>
+      {error && (
+        <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--coral-200)', color: 'var(--danger)', borderRadius: 8, padding: '12px 16px', marginBottom: 24, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="alert-circle" size={16} color="var(--danger)" />{error}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 10, marginBottom: 36 }}>
         {continueCourse ? (
           <button className="btn btn-primary" onClick={() => navigate(`/learn/courses/${continueCourse.courseId}/play`)}>
@@ -83,6 +92,12 @@ export default function LearnDashboard() {
         ) : null}
         <button className="btn btn-secondary" onClick={() => navigate('/learn/browse')}>Browse catalogue</button>
       </div>
+
+      {loading && (
+        <div className="course-grid">
+          {[0,1,2].map(i => <SkeletonCourseCard key={i} />)}
+        </div>
+      )}
 
       {!loading && inProgress.length > 0 && (
         <>

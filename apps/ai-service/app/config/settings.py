@@ -22,5 +22,9 @@ class Settings(BaseSettings):
     chroma_port: int = 8000
     chroma_collection: str = "learnpulse_courses"
 
+    redis_host: str = "redis"
+    redis_port: int = 6379
+    redis_ttl_seconds: int = 3600
+
 
 settings = Settings()
