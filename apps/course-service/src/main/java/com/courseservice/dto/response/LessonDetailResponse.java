@@ -15,6 +15,7 @@ public record LessonDetailResponse(
         String description,
         ContentType contentType,
         String contentUrl,
+        String contentKey,
         int orderIndex,
         LocalDateTime createdAt,
         List<AttachmentResponse> attachments
@@ -25,8 +26,8 @@ public record LessonDetailResponse(
                 .collect(Collectors.toList());
         return new LessonDetailResponse(
                 l.getId(), l.getModule().getId(), l.getTitle(), l.getDescription(),
-                l.getContentType(), l.getContentUrl(), l.getOrderIndex(), l.getCreatedAt(),
-                attachments
+                l.getContentType(), l.getContentUrl(), l.getContentKey(),
+                l.getOrderIndex(), l.getCreatedAt(), attachments
         );
     }
 }

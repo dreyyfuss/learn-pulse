@@ -238,6 +238,32 @@ These don't fit a single phase — assign owners and pull throughout the project
 
 ---
 
+## Phase 9 — Content Upload & Display
+
+> **Service context:** Backend changes in course-service. Frontend in `apps/web`. Object storage via MinIO (dev) / S3 (prod).
+
+**Goal:** Instructors can upload video, document, and Markdown article files directly through the Course Builder. Learners see a type-appropriate viewer (HTML5 player, PDF iframe, Markdown renderer). Legacy lessons with a `content_url` continue to work via fallback.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 9.1 | Implement `S3Config` bean in course-service (mirrors cert-service; adds `public-endpoint` override for presigned URLs so browsers can reach MinIO directly). | BE-A | S | 0.2 | `S3Client` + `S3Presigner` beans initialise on startup |
+| 9.2 | Implement `StorageService` in course-service: `presignUploadUrl`, `presignDownloadUrl`, `delete`. | BE-A | S | 9.1 | Manual test: generate presigned PUT URL, upload a file, presigned GET URL returns it |
+| 9.3 | Flyway `V5__add_content_key.sql`: add `content_key` to `lessons`, `s3_key` to `lesson_attachments`, make `s3_url` nullable. Update `Lesson` and `LessonAttachment` JPA entities. | BE-A | S | — | Migrations apply cleanly on fresh DB |
+| 9.4 | Create `LessonContentService` and `LessonContentController` (7 endpoints: content upload-url, confirm, GET, DELETE; attachment upload-url, confirm, GET download-url). | BE-A | M | 9.1, 9.2, 9.3 | Postman: full upload → confirm → GET flow for each content type |
+| 9.5 | `docker-compose.dev.yml`: add `APP_S3_ACCESS_KEY/SECRET_KEY/PUBLIC_ENDPOINT` to course-service; update `minio-init` to configure bucket CORS for browser direct-upload. | DEVOPS | S | 9.1 | MinIO PUT from browser succeeds without CORS error |
+| 9.6 | Frontend: add 7 content API methods to `courseService.js`. | FE-A | S | 9.4 | Methods callable from browser console without errors |
+| 9.7 | Frontend: build `LessonContentUpload` component (file picker for VIDEO/DOCUMENT, Markdown textarea for ARTICLE, progress bar, two-step upload flow). | FE-A | M | 9.6 | Instructor uploads a PDF and sees "Uploaded successfully" |
+| 9.8 | Frontend: build `LessonContentViewer` component (HTML5 video, PDF iframe + download, react-markdown renderer, legacy fallback). | FE-B | M | 9.6 | Learner sees video playing / PDF rendered / Markdown text |
+| 9.9 | Wire `LessonContentUpload` into `CourseBuilder.jsx` (replace Content URL input). Wire `LessonContentViewer` into `CoursePlayer.jsx`. | FE-A/B | S | 9.7, 9.8 | End-to-end: upload video in builder → learner sees player in player view |
+
+**Phase 9 DoD:**
+- Instructor uploads a video, a PDF document, and a Markdown article through the Course Builder.
+- Enrolled learner sees the correct viewer for each type in the Course Player.
+- Legacy lessons with `content_url` (and no `content_key`) still render via the fallback URL.
+- An instructor can upload a supplementary attachment; an enrolled learner can download it.
+
+---
+
 ## Risk Register
 
 | Risk | Likelihood | Mitigation |

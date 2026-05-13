@@ -48,6 +48,9 @@ app:
     bucket: ${S3_BUCKET:learnpulse}
     endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
     region: ${S3_REGION:us-east-1}
+    access-key: ${APP_S3_ACCESS_KEY:minioadmin}
+    secret-key: ${APP_S3_SECRET_KEY:minioadmin}
+    public-endpoint: ${APP_S3_PUBLIC_ENDPOINT:}  # browser-reachable host for presigned URLs
   service-auth:
     secret: ${SERVICE_AUTH_SECRET:change-me-in-dev}
 

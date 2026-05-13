@@ -6,6 +6,7 @@ import com.courseservice.dto.response.ApiResponse;
 import com.courseservice.dto.response.CourseSummaryResponse;
 import com.courseservice.dto.response.CourseResponse;
 import com.courseservice.dto.response.CreateCourseResponse;
+import com.courseservice.dto.response.EnrolmentCodeResponse;
 import com.courseservice.dto.response.PageResponse;
 import com.courseservice.enums.CourseVisibility;
 import com.courseservice.security.UserPrincipal;
@@ -42,6 +43,15 @@ public class CourseController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CourseResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(courseService.get(id), "OK"));
+    }
+
+    @GetMapping("/{id}/enrolment-code")
+    @PreAuthorize("hasRole('INSTRUCTOR')")
+    public ResponseEntity<ApiResponse<EnrolmentCodeResponse>> getEnrolmentCode(
+            @PathVariable UUID id,
+            Authentication auth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                courseService.getEnrolmentCode(id, principal(auth).getId()), "OK"));
     }
 
     @PostMapping

@@ -4,6 +4,7 @@ import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
+import LessonContentUpload from '../../components/LessonContentUpload';
 import courseService from '../../services/courseService';
 
 
@@ -35,6 +36,7 @@ function EditCourseBuilder({ courseId }) {
   const [publishError, setPublishError] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState('');
+  const [enrolmentCode, setEnrolmentCode] = useState(null);
 
   // DnD refs
   const dragModuleIdx = useRef(null);
@@ -49,6 +51,11 @@ function EditCourseBuilder({ courseId }) {
         setCourse(data);
         setCourseTitle(data.title);
         setModules(data.modules ?? []);
+        if (data.visibility === 'PRIVATE') {
+          courseService.getEnrolmentCode(courseId)
+            .then(res => setEnrolmentCode(res.enrolmentCode))
+            .catch(() => {});
+        }
       })
       .catch(err => setLoadError(err.message || 'Could not load course.'))
       .finally(() => setLoading(false));
@@ -238,6 +245,19 @@ function EditCourseBuilder({ courseId }) {
     });
   };
 
+  // ── Mark lesson as having content after upload (optimistic update) ──
+  const markLessonHasContent = () => {
+    if (!activeLesson) return;
+    const { lesson, moduleId } = activeLesson;
+    const updated = { ...lesson, contentKey: '__uploaded__' };
+    setModules(prev => prev.map(m =>
+      m.id === moduleId
+        ? { ...m, lessons: m.lessons.map(l => l.id === lesson.id ? updated : l) }
+        : m
+    ));
+    setActiveLesson({ lesson: updated, moduleId });
+  };
+
   // ── Render states ──
   if (loading) return (
     <div style={{ display: 'flex', height: 'calc(100vh - 60px)', alignItems: 'center', justifyContent: 'center' }}>
@@ -269,6 +289,19 @@ function EditCourseBuilder({ courseId }) {
             />
         }
         <Tag variant={statusVariant}>{statusLabel}</Tag>
+        {enrolmentCode && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
+            <Icon name="key" size={13} color="var(--ink-3)" />
+            <span style={{ color: 'var(--ink-2)', userSelect: 'all', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{enrolmentCode}</span>
+            <button
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--ink-3)', display: 'flex', alignItems: 'center' }}
+              title="Copy enrolment code"
+              onClick={() => { navigator.clipboard.writeText(enrolmentCode); showToast('Enrolment code copied.'); }}
+            >
+              <Icon name="copy" size={13} />
+            </button>
+          </div>
+        )}
         {!isLocked && !isPublished && (
           <>
             <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={saving}>
@@ -445,32 +478,32 @@ function EditCourseBuilder({ courseId }) {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div className="field">
-                  <label>Content type</label>
-                  <select
-                    className="input select"
-                    value={lessonForm.contentType}
-                    onChange={e => setLessonForm(p => ({ ...p, contentType: e.target.value }))}
-                    disabled={isLocked}
-                  >
-                    <option value="VIDEO">Video</option>
-                    <option value="DOCUMENT">Document</option>
-                    <option value="ARTICLE">Article</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Content URL</label>
-                  <input
-                    className="input"
-                    value={lessonForm.contentUrl}
-                    onChange={e => setLessonForm(p => ({ ...p, contentUrl: e.target.value }))}
-                    placeholder="https://…"
-                    disabled={isLocked}
-                  />
-                </div>
+              <div className="field">
+                <label>Content type</label>
+                <select
+                  className="input select"
+                  value={lessonForm.contentType}
+                  onChange={e => setLessonForm(p => ({ ...p, contentType: e.target.value }))}
+                  disabled={isLocked}
+                  style={{ maxWidth: 200 }}
+                >
+                  <option value="VIDEO">Video</option>
+                  <option value="DOCUMENT">Document</option>
+                  <option value="ARTICLE">Article</option>
+                  <option value="OTHER">Other</option>
+                </select>
               </div>
+
+              {!isLocked && (
+                <LessonContentUpload
+                  courseId={courseId}
+                  moduleId={activeLesson.moduleId}
+                  lessonId={activeLesson.lesson.id}
+                  contentType={lessonForm.contentType}
+                  hasContent={!!activeLesson.lesson.contentKey}
+                  onUploaded={markLessonHasContent}
+                />
+              )}
 
               <div className="field">
                 <label>Lesson description</label>

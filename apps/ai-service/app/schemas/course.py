@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class Instructor(BaseModel):
     id: str
-    fullName: str
+    fullName: str | None = None
 
 
 class LessonSummary(BaseModel):
@@ -11,6 +11,7 @@ class LessonSummary(BaseModel):
     title: str
     description: str | None = None
     contentType: str | None = None
+    contentKey: str | None = None
     moduleId: str
     moduleTitle: str
     moduleDescription: str | None = None

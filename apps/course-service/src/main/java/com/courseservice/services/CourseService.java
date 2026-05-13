@@ -5,6 +5,7 @@ import com.courseservice.dto.request.UpdateCourseRequest;
 import com.courseservice.dto.response.CourseSummaryResponse;
 import com.courseservice.dto.response.CourseResponse;
 import com.courseservice.dto.response.CreateCourseResponse;
+import com.courseservice.dto.response.EnrolmentCodeResponse;
 import com.courseservice.dto.response.PageResponse;
 import com.courseservice.enums.CourseStatus;
 import com.courseservice.enums.CourseVisibility;
@@ -71,6 +72,16 @@ public class CourseService {
         Course course = courseRepository.findWithModulesAndLessonsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + id));
         return CourseResponse.from(course);
+    }
+
+    @Transactional(readOnly = true)
+    public EnrolmentCodeResponse getEnrolmentCode(UUID id, UUID instructorId) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + id));
+        if (!course.getInstructorId().equals(instructorId)) {
+            throw new NotOwnerException("You do not own this course.");
+        }
+        return new EnrolmentCodeResponse(course.getEnrolmentCode());
     }
 
     @Transactional(readOnly = true)
