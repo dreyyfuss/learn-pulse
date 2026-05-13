@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-LearnPulse uses Kafka as its single async backbone. There are **five** topics. The Course Service and Certificate Service are the producers; consumers are split between the Course Service (email), the Certificate Service (certificate generation), and the FastAPI AI service (indexing).
+LearnPulse uses Kafka as its single async backbone. There are **five** topics. The Course Service and Certificate Service are the producers; consumers are split between the User Service (email), the Certificate Service (certificate generation), and the FastAPI AI service (indexing).
 
 | Topic | Producer | Consumer Group(s) | Purpose |
 |---|---|---|---|
@@ -15,7 +15,7 @@ LearnPulse uses Kafka as its single async backbone. There are **five** topics. T
 | `user.enrolled` | Spring Boot | `email-service` (Spring Boot) | Send welcome email |
 | `module.unlocked` | Spring Boot | `email-service` (Spring Boot) | Send "next module ready" email |
 | `course.completed` | Spring Boot | `certificate-service` (Certificate Service — separate app) | Generate PDF + persist certificate |
-| `certificate.generated` | Certificate Service | `email-service` (Course Service) | Send certificate delivery email |
+| `certificate.generated` | Certificate Service | `email-service` (User Service) | Send certificate delivery email |
 
 ---
 
@@ -70,22 +70,25 @@ Every event payload begins with the same metadata block:
   "eventType":  "course.published",
   "version":    1,
   "occurredAt": "2026-05-01T10:00:00Z",
-  "courseId":   456,
+  "courseId":   "550e8400-e29b-41d4-a716-446655440002",
   "title":      "Intro to REST APIs",
-  "instructor": { "id": 12, "fullName": "Ada Lovelace" },
+  "instructor": { "id": "550e8400-e29b-41d4-a716-446655440010", "fullName": "Ada Lovelace" },
   "lessons": [
     {
-      "lessonId":          1,
+      "lessonId":          "550e8400-e29b-41d4-a716-446655440009",
       "title":             "What is REST?",
       "description":       "...",
       "contentType":       "ARTICLE",
-      "moduleId":          11,
+      "contentKey":        "lessons/550e8400-e29b-41d4-a716-446655440009/content.mp4",
+      "moduleId":          "550e8400-e29b-41d4-a716-44665544000b",
       "moduleTitle":       "Module 1: Foundations",
       "moduleDescription": "..."
     }
   ]
 }
 ```
+
+**Notes:** `contentKey` is the S3 object key for the lesson's main content file. It may be `null` if the instructor hasn't uploaded content yet; the AI indexer should embed title + description regardless.
 
 **Consumer behaviour (FastAPI):**
 1. Skip if `course_id` already indexed (check `courses_indexed` table or vector store metadata).
@@ -110,9 +113,9 @@ Re-indexing is unnecessary because a course is locked once any learner starts it
   "eventType":  "user.enrolled",
   "version":    1,
   "occurredAt": "2026-05-01T11:00:00Z",
-  "userId":     123,
-  "courseId":   456,
-  "enrolmentId": 789
+  "userId":     "550e8400-e29b-41d4-a716-446655440001",
+  "courseId":   "550e8400-e29b-41d4-a716-446655440002",
+  "enrolmentId": "550e8400-e29b-41d4-a716-446655440003"
 }
 ```
 
@@ -138,10 +141,10 @@ Re-indexing is unnecessary because a course is locked once any learner starts it
   "eventType":           "module.unlocked",
   "version":             1,
   "occurredAt":          "2026-05-01T13:00:00Z",
-  "userId":              123,
-  "courseId":            456,
-  "enrolmentId":         789,
-  "unlockedModuleId":    790,
+  "userId":              "550e8400-e29b-41d4-a716-446655440001",
+  "courseId":            "550e8400-e29b-41d4-a716-446655440002",
+  "enrolmentId":         "550e8400-e29b-41d4-a716-446655440003",
+  "unlockedModuleId":    "550e8400-e29b-41d4-a716-44665544000c",
   "unlockedModuleTitle": "Module 2: Advanced Concepts",
   "unlockedModuleOrder": 2
 }
@@ -166,9 +169,9 @@ Re-indexing is unnecessary because a course is locked once any learner starts it
   "eventType":   "course.completed",
   "version":     1,
   "occurredAt":  "2026-05-01T14:00:00Z",
-  "userId":      123,
-  "courseId":    456,
-  "enrolmentId": 789,
+  "userId":      "550e8400-e29b-41d4-a716-446655440001",
+  "courseId":    "550e8400-e29b-41d4-a716-446655440002",
+  "enrolmentId": "550e8400-e29b-41d4-a716-446655440003",
   "completedAt": "2026-05-01T14:00:00Z"
 }
 ```
@@ -235,11 +238,12 @@ Manual offset commit is performed only after the DB transaction commits successf
   "eventType":     "certificate.generated",
   "version":       1,
   "occurredAt":    "2026-05-01T14:05:00Z",
-  "userId":        123,
-  "courseId":      456,
-  "certificateId": "cert-uuid",
-  "s3Url":         "certificates/123/456/cert-uuid.pdf",
-  "issuedAt":      "2026-05-01T14:05:00Z"
+  "userId":        "550e8400-e29b-41d4-a716-446655440001",
+  "courseId":      "550e8400-e29b-41d4-a716-446655440002",
+  "certificateId": "550e8400-e29b-41d4-a716-446655440099",
+  "s3Key":         "certificates/550e8400.../cert-uuid.pdf",
+  "issuedAt":      "2026-05-01T14:05:00Z",
+  "downloadUrl":   "https://cdn.example.com/certificates/...?X-Amz-Signature=..."
 }
 ```
 

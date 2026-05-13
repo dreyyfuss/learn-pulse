@@ -1,8 +1,13 @@
-FROM python:3.12
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt requirements-test.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-test.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt -r requirements-test.txt
 COPY app/ app/
 COPY tests/ tests/
 COPY pytest.ini .
