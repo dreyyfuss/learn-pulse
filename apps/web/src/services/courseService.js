@@ -9,12 +9,10 @@ const courseService = {
     return api.get(`/api/courses${qs ? `?${qs}` : ''}`).then(r => r.data);
   },
 
-  listOwn:  ()           => api.get('/api/instructor/courses').then(r => r.data),
-  analytics:(id)         => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
-  get:      (id)         => api.get(`/api/courses/${id}`).then(r => r.data),
-  listOwn:        ()     => api.get('/api/instructor/courses').then(r => r.data),
-  get:            (id)   => api.get(`/api/courses/${id}`).then(r => r.data),
-  getEnrolmentCode: (id) => api.get(`/api/courses/${id}/enrolment-code`).then(r => r.data),
+  listOwn:          ()    => api.get('/api/instructor/courses').then(r => r.data),
+  analytics:       (id)  => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
+  get:             (id)  => api.get(`/api/courses/${id}`).then(r => r.data),
+  getEnrolmentCode:(id)  => api.get(`/api/courses/${id}/enrolment-code`).then(r => r.data),
   create:   (body)       => api.post('/api/courses', body).then(r => r.data),
   update:   (id, body)   => api.patch(`/api/courses/${id}`, body).then(r => r.data),
   publish:  (id)         => api.post(`/api/courses/${id}/publish`).then(r => r.data),
