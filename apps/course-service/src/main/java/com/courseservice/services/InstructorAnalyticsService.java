@@ -1,5 +1,6 @@
 package com.courseservice.services;
 
+import com.courseservice.client.UserServiceClient;
 import com.courseservice.dto.response.CourseAnalyticsResponse;
 import com.courseservice.dto.response.CourseAnalyticsResponse.Aggregate;
 import com.courseservice.dto.response.CourseAnalyticsResponse.LearnerStat;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class InstructorAnalyticsService {
     private final CourseRepository courseRepository;
     private final EnrolmentRepository enrolmentRepository;
     private final LessonRepository lessonRepository;
+    private final UserServiceClient userServiceClient;
 
     @Cacheable(cacheNames = "analytics:instructor", key = "#courseId.toString() + ':' + #instructorId.toString()")
     @Transactional(readOnly = true)
@@ -47,12 +51,16 @@ public class InstructorAnalyticsService {
         List<LearnerProgressProjection> rows =
                 enrolmentRepository.findLearnerProgressByCourseId(courseId);
 
+        List<UUID> userIds = rows.stream().map(LearnerProgressProjection::getUserId).collect(Collectors.toList());
+        Map<String, String> names = userServiceClient.getNames(userIds);
+
         List<LearnerStat> learners = rows.stream()
                 .map(r -> {
                     double pct = totalLessons == 0 ? 0.0
                             : Math.round(r.getLessonsCompleted() * 10000.0 / totalLessons) / 100.0;
                     return new LearnerStat(
                             r.getUserId(),
+                            names.get(r.getUserId().toString()),
                             r.getStatus(),
                             r.getEnrolledAt(),
                             r.getCompletedAt(),

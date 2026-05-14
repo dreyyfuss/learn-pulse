@@ -68,4 +68,34 @@ public class MailgunClient {
 
         log.info("Email sent to={} template={}", toEmail, template);
     }
+
+    public void sendHtml(String toEmail, String toName, String subject, String htmlBody) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Mailgun API key not configured — skipping email to={} subject={}", toEmail, subject);
+            return;
+        }
+
+        String credentials = Base64.getEncoder().encodeToString(("api:" + apiKey).getBytes());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.set(HttpHeaders.AUTHORIZATION, "Basic " + credentials);
+
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("from", from);
+        body.add("to", String.format("%s <%s>", toName, toEmail));
+        body.add("subject", subject);
+        body.add("html", htmlBody);
+
+        String url = "https://api.mailgun.net/v3/" + domain + "/messages";
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Mailgun returned " + response.getStatusCode()
+                    + " sending to " + toEmail);
+        }
+
+        log.info("Email sent to={} subject={}", toEmail, subject);
+    }
 }

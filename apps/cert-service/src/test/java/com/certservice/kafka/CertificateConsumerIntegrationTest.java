@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
@@ -50,10 +50,10 @@ class CertificateConsumerIntegrationTest {
     @Autowired IdempotencyLogRepository      idempotencyLogRepository;
     @Autowired ObjectMapper                  objectMapper;
 
-    @MockBean S3Service           s3Service;
-    @MockBean PdfService          pdfService;
-    @MockBean UserServiceClient   userServiceClient;
-    @MockBean CourseServiceClient courseServiceClient;
+    @MockitoBean S3Service           s3Service;
+    @MockitoBean PdfService          pdfService;
+    @MockitoBean UserServiceClient   userServiceClient;
+    @MockitoBean CourseServiceClient courseServiceClient;
 
     @BeforeEach
     void setUp() {

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +18,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
@@ -50,9 +53,9 @@ class CertificateControllerTest {
 
     @Autowired MockMvc mockMvc;
 
-    @MockBean CertificateRepository certificateRepository;
-    @MockBean S3Service             s3Service;
-    @MockBean KafkaTemplate<String, String> kafkaTemplate;
+    @MockitoBean CertificateRepository certificateRepository;
+    @MockitoBean S3Service             s3Service;
+    @MockitoBean KafkaTemplate<String, String> kafkaTemplate;
 
     private static final String USER_ID  = "00000000-0000-0000-0000-000000000001";
     private static final UUID   COURSE_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
@@ -115,23 +118,28 @@ class CertificateControllerTest {
     }
 
     @Test
-    void download_authenticated_returnsPresignedUrl() throws Exception {
+    void download_authenticated_returnsPdfBytesWithCorrectHeaders() throws Exception {
+        byte[] pdfBytes = new byte[]{37, 80, 68, 70}; // %PDF magic bytes
         when(certificateRepository.findByCertificateUuid(CERT_UUID)).thenReturn(Optional.of(cert));
-        when(s3Service.presignedUrl(anyString(), any(Duration.class)))
-                .thenReturn("https://minio.local/certificates/cert.pdf?X-Amz-Signature=abc");
+        when(s3Service.download(cert.getS3Key())).thenReturn(pdfBytes);
 
         mockMvc.perform(asLearner(get("/api/certificates/" + CERT_UUID + "/download")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", containsString("X-Amz-Signature")));
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        containsString("attachment")))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        containsString(CERT_UUID)))
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(content().bytes(pdfBytes));
     }
 
     @Test
-    void download_notFound_returns409CertificateNotReady() throws Exception {
+    void download_notFound_returns404WithNotFoundCode() throws Exception {
         when(certificateRepository.findByCertificateUuid("no-such-uuid")).thenReturn(Optional.empty());
 
         mockMvc.perform(asLearner(get("/api/certificates/no-such-uuid/download")))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code", is("CERTIFICATE_NOT_READY")));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code", is("NOT_FOUND")));
     }
 
     @Test
@@ -161,5 +169,49 @@ class CertificateControllerTest {
         mockMvc.perform(get("/internal/certificates/missing/exists"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.exists", is(false)));
+    }
+
+    // ── Additional edge cases ─────────────────────────────────────
+
+    @Test
+    void listMine_multipleCertificates_returnsAll() throws Exception {
+        Certificate cert2 = new Certificate();
+        cert2.setId(UUID.randomUUID());
+        cert2.setCertificateUuid("1111-2222-3333-4444-5555");
+        cert2.setUserId(USER_ID);
+        cert2.setCourseId(UUID.randomUUID());
+        cert2.setEnrolmentId(UUID.randomUUID());
+        cert2.setS3Key("certificates/" + USER_ID + "/course2/cert2.pdf");
+
+        when(certificateRepository.findByUserId(USER_ID)).thenReturn(List.of(cert, cert2));
+
+        mockMvc.perform(asLearner(get("/api/learner/certificates")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)));
+    }
+
+    @Test
+    void listMine_certWithNullLearnerAndCourseName_serializedSafely() throws Exception {
+        cert.setLearnerName(null);
+        cert.setCourseName(null);
+        when(certificateRepository.findByUserId(USER_ID)).thenReturn(List.of(cert));
+
+        mockMvc.perform(asLearner(get("/api/learner/certificates")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].certificateUuid", is(CERT_UUID)));
+    }
+
+    @Test
+    void download_s3Fails_propagatesException() {
+        // No global @ControllerAdvice handles RuntimeException, so it propagates rather than mapping to 500.
+        // The important thing is it is NOT silently swallowed and the cert bytes are not returned.
+        when(certificateRepository.findByCertificateUuid(CERT_UUID)).thenReturn(Optional.of(cert));
+        when(s3Service.download(anyString())).thenThrow(new RuntimeException("S3 unavailable"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                mockMvc.perform(asLearner(get("/api/certificates/" + CERT_UUID + "/download"))))
+                .hasRootCauseInstanceOf(RuntimeException.class)
+                .hasRootCauseMessage("S3 unavailable");
     }
 }

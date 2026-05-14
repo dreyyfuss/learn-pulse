@@ -34,6 +34,12 @@ public class Certificate {
     @Column(name = "s3_key", length = 1024, nullable = false)
     private String s3Key;
 
+    @Column(name = "learner_name", length = 120)
+    private String learnerName;
+
+    @Column(name = "course_name")
+    private String courseName;
+
     @Column(name = "issued_at", nullable = false, updatable = false)
     private LocalDateTime issuedAt;
 

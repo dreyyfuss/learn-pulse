@@ -6,6 +6,7 @@ export default function MyCertificates() {
   const [certs, setCerts]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     certificateService.listMine()
@@ -51,6 +52,8 @@ export default function MyCertificates() {
           {certs.map(cert => (
             <div key={cert.certificateUuid} className="cert-card">
               <div className="cert-mark">✦</div>
+              {cert.courseName && <div className="cert-course">{cert.courseName}</div>}
+              {cert.learnerName && <div className="cert-learner">{cert.learnerName}</div>}
               <div className="cert-id">{cert.certificateUuid}</div>
               <div className="cert-meta">
                 Issued {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString() : '—'}
@@ -64,9 +67,18 @@ export default function MyCertificates() {
                 </button>
                 <button
                   className="btn btn-secondary btn-sm"
-                  onClick={() => navigator.clipboard.writeText(cert.certificateUuid)}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(cert.certificateUuid);
+                      setCopiedId(cert.certificateUuid);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    } catch {
+                      alert('Could not copy automatically — please select and copy the ID manually.');
+                    }
+                  }}
                 >
-                  <Icon name="copy" size={13} /> Copy ID
+                  <Icon name={copiedId === cert.certificateUuid ? 'check' : 'copy'} size={13} />
+                  {copiedId === cert.certificateUuid ? 'Copied!' : 'Copy ID'}
                 </button>
               </div>
             </div>
