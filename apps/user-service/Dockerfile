@@ -1,9 +1,9 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 COPY pom.xml .
-RUN mvn dependency:go-offline -B -q
 COPY src/ src/
-RUN mvn package -DskipTests -B -q
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn package -DskipTests -B -q
 
 FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update && apt-get install -y --no-install-recommends curl \

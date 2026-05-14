@@ -37,7 +37,8 @@ public class CourseEventProducer {
                                 lesson.getContentType().name(),
                                 module.getId().toString(),
                                 module.getTitle(),
-                                module.getDescription()
+                                module.getDescription(),
+                                lesson.getContentKey()
                         )))
                 .toList();
 

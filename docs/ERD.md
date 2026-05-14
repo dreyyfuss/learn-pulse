@@ -207,11 +207,14 @@ UK: `(course_id, order_index)`. Index: `IDX(course_id)`.
 | `title` | `VARCHAR(200)` | |
 | `description` | `TEXT` | |
 | `content_type` | `ENUM('VIDEO','DOCUMENT','ARTICLE','OTHER')` | |
-| `content_url` | `VARCHAR(1024)` | external/S3 URL |
+| `content_url` | `VARCHAR(1024)` | legacy: external URL provided by instructor |
+| `content_key` | `VARCHAR(1024)` | S3 object key for platform-uploaded content (added V5) |
 | `order_index` | `INT UNSIGNED` | |
 | `created_at` | `DATETIME(6)` | |
 
 UK: `(module_id, order_index)`. Index: `IDX(module_id)`.
+
+`content_key` takes precedence over `content_url` when both are set. The viewer generates a 1-hour presigned GET URL from `content_key`; falls back to `content_url` if `content_key` is null.
 
 ### 2.6 `lesson_attachments`
 | Column | Type | Notes |
@@ -219,7 +222,8 @@ UK: `(module_id, order_index)`. Index: `IDX(module_id)`.
 | `id` | `BINARY(16)` | PK, application-generated UUID |
 | `lesson_id` | `BINARY(16)` | FK → `lessons.id`, `ON DELETE CASCADE` |
 | `file_name` | `VARCHAR(255)` | |
-| `s3_url` | `VARCHAR(1024)` | |
+| `s3_url` | `VARCHAR(1024)` | nullable; legacy: full external URL |
+| `s3_key` | `VARCHAR(1024)` | S3 object key for platform-uploaded attachments (added V5) |
 | `mime_type` | `VARCHAR(120)` | |
 
 ### 2.7 `enrolments`
@@ -309,6 +313,7 @@ Each service manages its own Flyway migrations independently.
 | V2 | `V2__create_modules_and_lessons.sql` | `modules`, `lessons`, `lesson_attachments` |
 | V3 | `V3__create_enrolments_and_progress.sql` | `enrolments`, `lesson_progress`, `module_unlocks` |
 | V4 | `V4__create_idempotency_and_outbox.sql` | `idempotency_log` (email consumer), `outbox_events` |
+| V5 | `V5__add_content_key.sql` | `lessons.content_key`, `lesson_attachments.s3_key` (Phase 9 content upload) |
 
 > `courses.instructor_id` references a user ID from the User Service. The FK is enforced at the application layer only — no DB-level constraint across service databases.
 

@@ -33,9 +33,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,  "/api/auth/validate").permitAll()
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/internal/**").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/internal/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();

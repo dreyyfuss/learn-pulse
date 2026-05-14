@@ -1,46 +1,28 @@
-from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
+
+# Make all app.* loggers visible at INFO level in docker logs
+logging.getLogger("app").setLevel(logging.INFO)
 
 from app.api.chat import router as chat_router
-from app.config.redis_client import close_redis
-from app.config.settings import settings
-from app.kafka.consumer import CoursePublishedConsumer
-from app.middleware.trace import TraceMiddleware
-from app.rag.chunker import TextChunker
-from app.rag.embedder import Embedder
-from app.rag.indexer import CourseIndexer
-from app.rag.pipeline import RagPipeline
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    embedder = Embedder()
-    embedder.load()  # downloads/loads model once at startup
-
-    chunker = TextChunker(
-        chunk_size=settings.chunk_size,
-        chunk_overlap=settings.chunk_overlap,
-    )
-    indexer = CourseIndexer(embedder=embedder, chunker=chunker)
-
-    consumer = CoursePublishedConsumer(indexer=indexer)
-    await consumer.start()
-
-    pipeline = RagPipeline()
-    await pipeline.setup()
-    app.state.pipeline = pipeline
-
-    yield
-
-    await consumer.stop()
-    await close_redis()
-
+from app.exceptions import EnrolmentError
+from app.lifespan import lifespan
+from app.middleware.logging import RequestIDMiddleware
 
 app = FastAPI(title="LearnPulse AI Service", version="0.1.0", lifespan=lifespan)
-app.add_middleware(TraceMiddleware)
 
+Instrumentator().instrument(app).expose(app)
+
+app.add_middleware(RequestIDMiddleware)
 app.include_router(chat_router)
+
+
+@app.exception_handler(EnrolmentError)
+async def enrolment_error_handler(request: Request, exc: EnrolmentError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
 @app.get("/healthz")

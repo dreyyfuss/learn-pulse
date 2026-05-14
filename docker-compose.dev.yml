@@ -78,6 +78,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 168
+      # Required for single-broker dev: default replication factor is 3,
+      # which can never be satisfied with one broker and silently breaks
+      # __consumer_offsets auto-creation.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
     volumes:
       - kafka-data:/var/lib/kafka/data
     ports:
@@ -133,7 +139,7 @@ services:
 
   # ── Object storage (S3-compatible) ────────────────────────────
   minio:
-    image: minio/minio:RELEASE.2024-05-01T01-11-10Z
+    image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -157,22 +163,41 @@ services:
       traefik.http.services.minio-console.loadbalancer.server.port: "9001"
     restart: unless-stopped
 
-  # Creates the learnpulse bucket on first boot; exits 0 when done.
+  # Creates the learnpulse bucket and sets certificates folder public.
+  # MinIO handles CORS globally via cors_allow_origin=* (default), so no per-bucket CORS setup needed.
   minio-init:
     image: minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
         mc alias set local http://minio:9000 minioadmin minioadmin &&
         mc mb --ignore-existing local/learnpulse &&
         mc anonymous set download local/learnpulse/certificates &&
         echo 'MinIO bucket ready.'
-      "
     networks:
       - learnpulse
     restart: on-failure
+
+  # ── Vector store ──────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma-data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      - learnpulse
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
   # ── Application Services ─────────────────────────────────────
   user-service:
@@ -180,6 +205,8 @@ services:
       context: ./apps/user-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/learnpulse_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
     networks:
       - learnpulse
     ports:
@@ -219,6 +246,10 @@ services:
       context: ./apps/cert-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/learnpulse_certs?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
+      S3_ENDPOINT: "http://minio:9000"
+      APP_S3_PUBLIC_ENDPOINT: "http://localhost:9010"
     networks:
       - learnpulse
     ports:
@@ -252,6 +283,13 @@ services:
       context: ./apps/course-service
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      DB_URL: "jdbc:mysql://mysql:3306/course_service_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+      KAFKA_SERVERS: kafka:9092
+      S3_ENDPOINT: "http://minio:9000"
+      APP_S3_ACCESS_KEY: "minioadmin"
+      APP_S3_SECRET_KEY: "minioadmin"
+      APP_S3_PUBLIC_ENDPOINT: "http://localhost:9010"
+      SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
     networks:
       - learnpulse
     ports:
@@ -273,7 +311,7 @@ services:
       start_period: 120s
     labels:
       traefik.enable: "true"
-      # catch-all for /api/* — lower priority than user-svc and cert-svc
+      # catch-all for /api/* — lower priority than user-svc, cert-svc, and ai-svc
       traefik.http.routers.course-svc.rule: "PathPrefix(`/api`)"
       traefik.http.routers.course-svc.entrypoints: web
       traefik.http.routers.course-svc.priority: "10"
@@ -292,6 +330,82 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+  # ── Monitoring ────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    networks:
+      - learnpulse
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - learnpulse
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── AI Service ────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./apps/ai-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      REDIS_URL: redis://redis:6379
+      COURSE_SERVICE_URL: http://course-service:8080
+      SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+      CEREBRAS_MODEL: ${CEREBRAS_MODEL:-llama-3.1-8b}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      S3_BUCKET: "learnpulse"
+    networks:
+      - learnpulse
+    ports:
+      - "9000:9000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      chromadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.ai-svc.rule: "PathPrefix(`/api/ai`)"
+      traefik.http.routers.ai-svc.entrypoints: web
+      traefik.http.routers.ai-svc.priority: "20"
+      traefik.http.routers.ai-svc.middlewares: jwt-auth@file
+      traefik.http.services.ai-svc.loadbalancer.server.port: "9000"
     restart: unless-stopped
 
 volumes:
@@ -299,6 +413,9 @@ volumes:
   redis-data:
   kafka-data:
   minio-data:
+  chroma-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   learnpulse:

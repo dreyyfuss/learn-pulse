@@ -232,9 +232,54 @@ These don't fit a single phase — assign owners and pull throughout the project
 |---|---|---|
 | **Tests** | Whoever writes the code | Aim for: ≥ 80 % service-layer coverage on backend; one happy-path E2E per Phase DoD. |
 | **CI/CD** | DEVOPS | Lint → build → test → docker image. Branch protection on `main`. |
-| **Observability** | BE-A | Structured JSON logs, `traceId` per request, Kafka UI for topic depth. Redis `INFO stats` (keyspace hits/misses) tracked in the Phase 8 perf report. |
+| **Observability** | BE-A / DEVOPS | Structured JSON logs, `traceId` per request, Kafka UI for topic depth. Redis `INFO stats` (keyspace hits/misses) tracked in the Phase 8 perf report. Prometheus + Grafana monitoring stack (Phase 10) — all four services expose metrics endpoints; the auto-provisioned **LearnPulse Overview** Grafana dashboard covers JVM health, HTTP request rates, and AI service latency. |
 | **Traefik config** | DEVOPS | Two configs: `traefik.dev.yml` (dynamic config, no TLS, dashboard on `:8080`) and `traefik.prod.yml` (TLS via Let's Encrypt / self-signed, dashboard disabled). Both live under `infrastructure/traefik/`. Docker-compose labels on each service container define routing rules and middleware. |
 | **Documentation** | All | Update relevant doc when a behaviour changes. PRs that change an API also touch `api-spec.md`. |
+
+---
+
+## Phase 9 — Content Upload & Display
+
+> **Service context:** Backend changes in course-service. Frontend in `apps/web`. Object storage via MinIO (dev) / S3 (prod).
+
+**Goal:** Instructors can upload video, document, and Markdown article files directly through the Course Builder. Learners see a type-appropriate viewer (HTML5 player, PDF iframe, Markdown renderer). Legacy lessons with a `content_url` continue to work via fallback.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 9.1 | Implement `S3Config` bean in course-service (mirrors cert-service; adds `public-endpoint` override for presigned URLs so browsers can reach MinIO directly). | BE-A | S | 0.2 | `S3Client` + `S3Presigner` beans initialise on startup |
+| 9.2 | Implement `StorageService` in course-service: `presignUploadUrl`, `presignDownloadUrl`, `delete`. | BE-A | S | 9.1 | Manual test: generate presigned PUT URL, upload a file, presigned GET URL returns it |
+| 9.3 | Flyway `V5__add_content_key.sql`: add `content_key` to `lessons`, `s3_key` to `lesson_attachments`, make `s3_url` nullable. Update `Lesson` and `LessonAttachment` JPA entities. | BE-A | S | — | Migrations apply cleanly on fresh DB |
+| 9.4 | Create `LessonContentService` and `LessonContentController` (7 endpoints: content upload-url, confirm, GET, DELETE; attachment upload-url, confirm, GET download-url). | BE-A | M | 9.1, 9.2, 9.3 | Postman: full upload → confirm → GET flow for each content type |
+| 9.5 | `docker-compose.dev.yml`: add `APP_S3_ACCESS_KEY/SECRET_KEY/PUBLIC_ENDPOINT` to course-service; update `minio-init` to configure bucket CORS for browser direct-upload. | DEVOPS | S | 9.1 | MinIO PUT from browser succeeds without CORS error |
+| 9.6 | Frontend: add 7 content API methods to `courseService.js`. | FE-A | S | 9.4 | Methods callable from browser console without errors |
+| 9.7 | Frontend: build `LessonContentUpload` component (file picker for VIDEO/DOCUMENT, Markdown textarea for ARTICLE, progress bar, two-step upload flow). | FE-A | M | 9.6 | Instructor uploads a PDF and sees "Uploaded successfully" |
+| 9.8 | Frontend: build `LessonContentViewer` component (HTML5 video, PDF iframe + download, react-markdown renderer, legacy fallback). | FE-B | M | 9.6 | Learner sees video playing / PDF rendered / Markdown text |
+| 9.9 | Wire `LessonContentUpload` into `CourseBuilder.jsx` (replace Content URL input). Wire `LessonContentViewer` into `CoursePlayer.jsx`. | FE-A/B | S | 9.7, 9.8 | End-to-end: upload video in builder → learner sees player in player view |
+
+**Phase 9 DoD:**
+- Instructor uploads a video, a PDF document, and a Markdown article through the Course Builder.
+- Enrolled learner sees the correct viewer for each type in the Course Player.
+- Legacy lessons with `content_url` (and no `content_key`) still render via the fallback URL.
+- An instructor can upload a supplementary attachment; an enrolled learner can download it.
+
+---
+
+## Phase 10 — App Monitoring (Prometheus + Grafana)
+
+> **Service context:** Adds a metrics pipeline across all four services. No new business logic — purely observability infrastructure.
+
+**Goal:** All services expose Prometheus metrics. Prometheus scrapes them every 15 s. Grafana auto-provisions a **LearnPulse Overview** dashboard showing JVM health, HTTP request rates, and AI service latency on every `docker compose up`.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 10.1 | Add `micrometer-registry-prometheus` dependency to `pom.xml` in all three Spring Boot services (user-service, course-service, cert-service). | DEVOPS | S | 0.3, 0.12, 0.13 | Dependency resolves in Maven build |
+| 10.2 | Expose `prometheus` actuator endpoint in each Spring Boot `application.yml`; add `management.metrics.tags.application` for per-service labelling in Prometheus. | BE-A | S | 10.1 | `GET /actuator/prometheus` on each service returns Prometheus text format |
+| 10.3 | Add `prometheus-fastapi-instrumentator>=6.0.0` to AI service `requirements.txt`; wire `Instrumentator().instrument(app).expose(app)` in `app/main.py`. | AI | S | 0.5 | `GET http://localhost:9000/metrics` returns Prometheus text format |
+| 10.4 | Create `infrastructure/monitoring/prometheus.yml` — global 15 s scrape interval; one job per service (`/actuator/prometheus` for Spring Boot services, `/metrics` for AI service) plus Prometheus self-scrape. | DEVOPS | S | 10.2, 10.3 | Prometheus UI at http://localhost:9090/targets shows all five targets `State = UP` |
+| 10.5 | Create Grafana provisioning tree under `infrastructure/monitoring/grafana/provisioning/`: datasource pointing at `http://prometheus:9090`; dashboard provider pointing at same directory; `learnpulse.json` dashboard with three rows — **JVM** (heap, GC, threads, CPU), **HTTP** (req/s, p99 latency, 5xx rate), **AI Service** (req/s, p99 latency). | DEVOPS | M | 10.4 | On fresh `docker compose up`, Grafana → Dashboards → **LearnPulse Overview** loads with live data and no manual steps |
+| 10.6 | Add `prometheus` (image `prom/prometheus:v2.53.0`, port 9090) and `grafana` (image `grafana/grafana:11.1.0`, port 3000) services to `docker-compose.dev.yml`; add `prometheus-data` and `grafana-data` named volumes. Default Grafana admin password: `admin`. | DEVOPS | S | 10.4, 10.5 | `docker compose up` brings both containers healthy; http://localhost:3000 reachable |
+
+**Phase 10 DoD:** Running `docker compose -f docker-compose.dev.yml up` brings Prometheus to http://localhost:9090 and Grafana to http://localhost:3000. All Spring Boot `/actuator/prometheus` endpoints and the AI service `/metrics` endpoint return scrape data. The provisioned **LearnPulse Overview** dashboard displays live metrics without any manual configuration.
 
 ---
 

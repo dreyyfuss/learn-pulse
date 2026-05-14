@@ -40,8 +40,12 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                               .collect(Collectors.toList())
                     : Collections.emptyList();
 
+
             String email = request.getHeader("X-User-Email");
-            UserPrincipal principal = new UserPrincipal(Long.parseLong(userId), email);
+            String primaryRole = (rolesHeader != null && !rolesHeader.isBlank())
+                    ? rolesHeader.split(",")[0].trim()
+                    : "";
+            UserPrincipal principal = new UserPrincipal(userId, email, primaryRole);
 
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, authorities));

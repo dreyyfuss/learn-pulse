@@ -2,6 +2,7 @@ package com.userservice.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.userservice.kafka.dto.CertificateGeneratedEvent;
 import com.userservice.kafka.dto.ModuleUnlockedEvent;
 import com.userservice.kafka.dto.UserEnrolledEvent;
 import com.userservice.repository.IdempotencyLogRepository;
@@ -27,7 +28,7 @@ public class EmailConsumer {
     private final EmailService emailService;
 
     @KafkaListener(
-            topics = {"user.enrolled", "module.unlocked"},
+            topics = {"user.enrolled", "module.unlocked", "certificate.generated"},
             groupId = "email-service",
             containerFactory = "emailKafkaListenerContainerFactory"
     )
@@ -62,6 +63,9 @@ public class EmailConsumer {
             } else if ("module.unlocked".equals(topic)) {
                 ModuleUnlockedEvent event = objectMapper.treeToValue(root, ModuleUnlockedEvent.class);
                 emailService.processModuleUnlocked(event, eventId, topic);
+            } else if ("certificate.generated".equals(topic)) {
+                CertificateGeneratedEvent event = objectMapper.treeToValue(root, CertificateGeneratedEvent.class);
+                emailService.processCertificateGenerated(event, eventId, topic);
             }
 
             ack.acknowledge();

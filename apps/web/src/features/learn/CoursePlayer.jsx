@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import ProgressBar from '../../components/ProgressBar';
 import Notification from '../../components/Notification';
 import AiChatDrawer from './AiChatDrawer';
+import LessonContentViewer from '../../components/LessonContentViewer';
 import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonLine } from '../../components/Skeleton';
+import certificateService from '../../services/certificateService';
 
 export default function CoursePlayer() {
   const navigate = useNavigate();
@@ -21,6 +23,10 @@ export default function CoursePlayer() {
   const [completedIds, setCompletedIds]       = useState(new Set());
   const [showAI, setShowAI]                   = useState(false);
   const [toast, setToast]                     = useState('');
+  const [celebration, setCelebration]         = useState(false);
+  const [certUuid, setCertUuid]               = useState(null);
+  const [certPolling, setCertPolling]         = useState(false);
+  const pollRef                               = useRef(null);
 
   useEffect(() => {
     if (!courseId) return;
@@ -70,6 +76,8 @@ export default function CoursePlayer() {
       .finally(() => setLoading(false));
   }, [courseId]);
 
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
   const allLessons = resolvedModules.flatMap(m => m.lessons);
   const lesson     = allLessons.find(l => l.lessonId === currentLessonId);
   const mod        = resolvedModules.find(m => m.lessons.some(l => l.lessonId === currentLessonId));
@@ -77,12 +85,40 @@ export default function CoursePlayer() {
   const totalDone  = completedIds.size;
   const currentIdx = allLessons.findIndex(l => l.lessonId === currentLessonId);
 
+  const startCertPoll = (courseIdToWatch) => {
+    setCertPolling(true);
+    const deadline = Date.now() + 30_000;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await certificateService.listMine();
+        const certs = res.data ?? res;
+        const match = certs.find(c => c.courseId === courseIdToWatch);
+        if (match) {
+          clearInterval(pollRef.current);
+          setCertUuid(match.certificateUuid);
+          setCertPolling(false);
+        } else if (Date.now() > deadline) {
+          clearInterval(pollRef.current);
+          setCertPolling(false);
+        }
+      } catch {
+        clearInterval(pollRef.current);
+        setCertPolling(false);
+      }
+    }, 3000);
+  };
+
   const markComplete = async () => {
     if (!currentLessonId || isComplete) return;
     const nextLesson = allLessons[currentIdx + 1];
     try {
       const result = await enrolmentService.completeLesson(currentLessonId);
       setCompletedIds(prev => new Set([...prev, currentLessonId]));
+      if (result.courseCompleted) {
+        setCelebration(true);
+        startCertPoll(courseId);
+        return;
+      }
       setToast('Lesson complete.'); setTimeout(() => setToast(''), 2500);
       if (result.nextModuleId) {
         setResolvedModules(prev => prev.map(m =>
@@ -110,6 +146,51 @@ export default function CoursePlayer() {
   );
   if (error)   return <div className="main"><p style={{ color: 'var(--danger)' }}>{error}</p></div>;
 
+  if (celebration) return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', zIndex: 9999, gap: 24,
+    }}>
+      <div style={{ fontSize: 64 }}>🎓</div>
+      <h1 style={{ color: '#fff', margin: 0, fontSize: 32, textAlign: 'center' }}>
+        Course complete!
+      </h1>
+      <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, textAlign: 'center', maxWidth: 400 }}>
+        {courseName}
+      </p>
+      {certPolling && !certUuid && (
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+          Generating your certificate…
+        </p>
+      )}
+      {certUuid && (
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            certificateService.downloadUrl(certUuid)
+              .then(res => window.open(res.data ?? res, '_blank', 'noopener'))
+              .catch(() => alert('Download unavailable. Check My Certificates.'));
+          }}
+        >
+          <Icon name="download" size={15} /> Download Certificate
+        </button>
+      )}
+      {!certPolling && !certUuid && (
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+          Certificate is on its way — check My Certificates in a moment.
+        </p>
+      )}
+      <button
+        className="btn btn-secondary btn-sm"
+        onClick={() => { setCelebration(false); navigate('/learn'); }}
+        style={{ marginTop: 8 }}
+      >
+        Back to dashboard
+      </button>
+    </div>
+  );
+
   return (
     <div style={{ position: 'relative' }}>
       <div className="main" style={{ paddingBottom: 100, paddingRight: 360 }}>
@@ -118,23 +199,12 @@ export default function CoursePlayer() {
         </button>
 
         <div>
-          {lesson?.contentType === 'VIDEO' && lesson?.contentUrl && (
-            <div className="video-block" style={{ padding: 0, background: 'transparent' }}>
-              <iframe
-                src={lesson.contentUrl}
-                title={lesson.title}
-                style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: 14 }}
-                allowFullScreen
-              />
-            </div>
-          )}
-
-          {lesson && lesson.contentType !== 'VIDEO' && lesson.contentUrl && (
-            <div style={{ marginBottom: 16 }}>
-              <a href={lesson.contentUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
-                <Icon name="file-text" size={14} /> Open resource
-              </a>
-            </div>
+          {lesson && (
+            <LessonContentViewer
+              courseId={courseId}
+              moduleId={mod?.moduleId}
+              lessonId={lesson.lessonId}
+            />
           )}
 
           {lesson && (
@@ -239,7 +309,7 @@ export default function CoursePlayer() {
         <Icon name="sparkles" size={15} /> Ask AI
       </button>
 
-      {showAI && <AiChatDrawer courseName={courseName} onClose={() => setShowAI(false)} />}
+      {showAI && <AiChatDrawer courseId={courseId} courseName={courseName} onClose={() => setShowAI(false)} />}
       {toast && <Notification>{toast}</Notification>}
     </div>
   );

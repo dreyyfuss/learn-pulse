@@ -1,17 +1,9 @@
 from pydantic import BaseModel
 
 
-class ChatMessage(BaseModel):
-    role: str  # "user" | "assistant"
-    content: str
+class SessionResponse(BaseModel):
+    sessionId: str
 
 
-class ChatRequest(BaseModel):
-    userId: str
+class MessageRequest(BaseModel):
     message: str
-    chatHistory: list[ChatMessage] = []
-
-
-class ChatResponse(BaseModel):
-    reply: str
-    cached: bool = False

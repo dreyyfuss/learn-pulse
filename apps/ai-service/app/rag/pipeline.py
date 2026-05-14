@@ -1,51 +1,75 @@
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+
+from langchain_cerebras import ChatCerebras
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+from app.config.settings import settings
+from app.config.vector_store import get_chroma_client, get_collection
+from app.rag.embedder import Embedder
+
+logger = logging.getLogger(__name__)
 
 from langchain_cerebras import ChatCerebras
 from langchain.schema import HumanMessage, SystemMessage
 
-from app.config.settings import settings
-from app.config.vector_store import get_chroma_client, get_collection
-
-logger = logging.getLogger(__name__)
-
-
 class RagPipeline:
-    def __init__(self) -> None:
-        self._ready = False
-        self._llm: ChatCerebras | None = None
-        self._collection = None
-
-    async def setup(self) -> None:
-        self._llm = ChatCerebras(
-            model=settings.cerebras_model,
-            api_key=settings.cerebras_api_key,
-        )
+    def __init__(self, embedder: Embedder) -> None:
+        self._embedder = embedder
+        self._llm: ChatCerebras | None = None  # lazy — needs a valid API key
         client = get_chroma_client()
         self._collection = get_collection(client)
-        self._ready = True
-        logger.info("RagPipeline ready model=%s", settings.cerebras_model)
 
-    async def query(self, question: str, course_id: str | None = None) -> str:
-        if not self._ready:
-            raise RuntimeError("RagPipeline not initialised — call setup() first")
+    def _llm_instance(self) -> ChatCerebras:
+        if self._llm is None:
+            if not settings.cerebras_api_key:
+                raise RuntimeError("CEREBRAS_API_KEY is not set")
+            self._llm = ChatCerebras(
+                api_key=settings.cerebras_api_key,
+                model=settings.cerebras_model,
+            )
+        return self._llm
 
-        where = {"courseId": course_id} if course_id else None
+    def _retrieve(self, query: str, course_id: str) -> list[str]:
+        embedding = self._embedder.embed([query])[0]
         results = self._collection.query(
-            query_texts=[question],
-            n_results=4,
-            where=where,
+            query_embeddings=[embedding],
+            n_results=settings.rag_top_k,
+            where={"courseId": course_id},
         )
-        chunks = results["documents"][0] if results["documents"] else []
-        context = "\n\n".join(chunks) if chunks else "No course content available."
+        docs: list[str] = results.get("documents", [[]])[0]
+        logger.debug("Retrieved %d chunks courseId=%s", len(docs), course_id)
+        return docs
 
-        messages = [
-            SystemMessage(content=(
-                "You are a study assistant for an online course. "
-                "Answer ONLY from the course content provided below. "
-                "If the answer is not in the content, say so.\n\n"
-                f"Course content:\n{context}"
-            )),
-            HumanMessage(content=question),
-        ]
-        response = await self._llm.ainvoke(messages)
-        return response.content
+    async def stream(
+        self,
+        query: str,
+        course_id: str,
+        course_title: str,
+        history: list[dict],
+    ) -> AsyncIterator[str]:
+        chunks = await asyncio.to_thread(self._retrieve, query, course_id)
+        context = "\n\n".join(chunks) if chunks else "No relevant content found."
+
+        system_content = (
+            f'You are a study assistant for the course "{course_title}".\n'
+            "Answer questions using ONLY the course content provided below.\n"
+            "If the question cannot be answered from the course content, "
+            "politely say so and suggest the learner review the relevant lessons.\n\n"
+            f"Course content:\n{context}"
+        )
+
+        messages: list = [SystemMessage(content=system_content)]
+        for msg in history:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if role == "user":
+                messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                messages.append(AIMessage(content=content))
+        messages.append(HumanMessage(content=query))
+
+        async for chunk in self._llm_instance().astream(messages):
+            if chunk.content:
+                yield chunk.content
