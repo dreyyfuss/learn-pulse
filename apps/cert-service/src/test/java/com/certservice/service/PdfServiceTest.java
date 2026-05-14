@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
 
@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PdfServiceTest {
 
     @Autowired PdfService pdfService;
-    @MockBean  KafkaTemplate<String, String> kafkaTemplate;
+    @MockitoBean  KafkaTemplate<String, String> kafkaTemplate;
 
     @Test
     void generateCertificate_returnsNonEmptyPdfBytes() {

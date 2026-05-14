@@ -25,4 +25,6 @@ public class CertificateGeneratedEvent {
     private String s3Key;
     private String issuedAt;
     private String downloadUrl;
+    private String courseName;
+    private String learnerName;
 }

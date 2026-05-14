@@ -4,6 +4,7 @@ import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
+import Pagination from '../../components/Pagination';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
@@ -11,34 +12,46 @@ import { SkeletonCourseCard } from '../../components/Skeleton';
 export default function CourseDiscovery() {
   const navigate = useNavigate();
   const [courses, setCourses]       = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
   const [filter, setFilter]         = useState('All');
   const [search, setSearch]         = useState('');
+  const [page, setPage]             = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [requestModal, setRequestModal] = useState(null);
   const [enrollCode, setEnrollCode] = useState('');
   const [toast, setToast]           = useState('');
 
   useEffect(() => {
-    courseService.list({ size: 100 })
+    courseService.list({ size: 200 })
       .then(data => {
-        const published = (data.items ?? []).filter(c => c.status === 'PUBLISHED');
-        setCourses(published);
+        const cats = [...new Set((data.items ?? []).map(c => c.category).filter(Boolean))];
+        setCategories(cats);
       })
-      .catch(err => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
-  const categories = ['All', ...new Set(courses.map(c => c.category).filter(Boolean))];
-
-  const filtered = courses.filter(c => {
-    const matchCat    = filter === 'All' || c.category === filter;
-    const q           = search.toLowerCase();
-    const matchSearch = !q
-      || c.title.toLowerCase().includes(q)
-      || (c.description ?? '').toLowerCase().includes(q);
-    return matchCat && matchSearch;
-  });
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading(true);
+      setError('');
+      const params = {
+        size: 12,
+        page,
+        ...(search.trim() ? { q: search.trim() } : {}),
+        ...(filter !== 'All' ? { category: filter } : {}),
+      };
+      courseService.list(params)
+        .then(data => {
+          setCourses(data.items ?? []);
+          setTotalPages(data.totalPages ?? 1);
+        })
+        .catch(err => setError(getErrorMessage(err)))
+        .finally(() => setLoading(false));
+    }, search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [search, filter, page]);
 
   const handleRequest = () => {
     setToast("Access requested. You'll hear back within 24 hours.");
@@ -63,21 +76,21 @@ export default function CourseDiscovery() {
           <Icon name="search" size={15} color="var(--ink-3)" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
             placeholder="Search courses…"
             style={{ border: 0, outline: 0, background: 'transparent', font: 'inherit', fontSize: 14, flex: 1, color: 'var(--ink)' }}
           />
         </div>
       </div>
 
-      {/* Category chips — only shown once courses are loaded */}
-      {!loading && categories.length > 1 && (
+      {/* Category chips */}
+      {categories.length > 0 && (
         <div className="filter-row">
-          {categories.map(t => (
+          {['All', ...categories].map(t => (
             <span
               key={t}
               className={`chip${filter === t ? ' active' : ''}`}
-              onClick={() => setFilter(t)}
+              onClick={() => { setFilter(t); setPage(0); }}
             >
               {t}
             </span>
@@ -94,16 +107,16 @@ export default function CourseDiscovery() {
         <p style={{ color: 'var(--danger)', textAlign: 'center', padding: '60px 0' }}>{error}</p>
       )}
 
-      {!loading && !error && filtered.length === 0 && (
+      {!loading && !error && courses.length === 0 && (
         <p style={{ color: 'var(--ink-3)', textAlign: 'center', padding: '60px 0' }}>
-          {courses.length === 0 ? 'No published courses yet.' : 'No courses match your search.'}
+          {!search && filter === 'All' ? 'No published courses yet.' : 'No courses match your search.'}
         </p>
       )}
 
       {/* Course grid */}
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && courses.length > 0 && (
         <div className="course-grid">
-          {filtered.map(c => (
+          {courses.map(c => (
             <div key={c.id} className="course-card" onClick={() => navigate(`/learn/courses/${c.id}`)}>
               <div className="thumb">
                 <Icon name="book-open" size={32} className="thumb-icon" />
@@ -149,6 +162,8 @@ export default function CourseDiscovery() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {/* Private-course request modal */}
       {requestModal && (

@@ -29,7 +29,20 @@ export default function CoursePlayer() {
   const pollRef                               = useRef(null);
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      enrolmentService.listMine()
+        .then(enrolData => {
+          const items = enrolData.items ?? [];
+          const resume = items.find(e => e.startedAt != null && e.status === 'ACTIVE');
+          if (resume) {
+            navigate(`/learn/courses/${resume.courseId}/play`, { replace: true });
+          } else {
+            navigate('/learn/dashboard', { replace: true });
+          }
+        })
+        .catch(() => navigate('/learn/dashboard', { replace: true }));
+      return;
+    }
     Promise.all([courseService.get(courseId), enrolmentService.listMine()])
       .then(([courseData, enrolData]) => {
         setCourseName(courseData.title);
@@ -183,7 +196,7 @@ export default function CoursePlayer() {
       )}
       <button
         className="btn btn-secondary btn-sm"
-        onClick={() => { setCelebration(false); navigate('/learn'); }}
+        onClick={() => { setCelebration(false); navigate('/learn/dashboard'); }}
         style={{ marginTop: 8 }}
       >
         Back to dashboard
@@ -193,7 +206,7 @@ export default function CoursePlayer() {
 
   return (
     <div style={{ position: 'relative' }}>
-      <div className="main" style={{ paddingBottom: 100, paddingRight: 360 }}>
+      <div className="main player-content">
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 20, marginLeft: -8 }} onClick={() => navigate(`/learn/courses/${courseId}`)}>
           <Icon name="arrow-left" size={15} /> {courseName}
         </button>

@@ -94,4 +94,26 @@ class CertificateConsumerTest {
                 .isInstanceOf(RuntimeException.class);
         verify(ack, never()).acknowledge();
     }
+
+    @Test
+    void consume_nullRecordValue_rethrowsForRetry() {
+        ConsumerRecord<String, String> nullValue = new ConsumerRecord<>("course.completed", 0, 2L, null, null);
+
+        assertThatThrownBy(() -> consumer.consume(nullValue, ack))
+                .isInstanceOf(RuntimeException.class);
+        verify(ack, never()).acknowledge();
+    }
+
+    @Test
+    void consume_jsonWithAllNullFields_delegatesToServiceAndRethrowsOnFailure() {
+        // A structurally valid JSON object but with null field values causes the service to fail (NPE on
+        // UUID.fromString(null)); the consumer must rethrow so Kafka retries rather than silently acking.
+        ConsumerRecord<String, String> nullFields = new ConsumerRecord<>(
+                "course.completed", 0, 3L, null, "{}");
+        when(certificateService.issue(any())).thenThrow(new RuntimeException("NPE in service"));
+
+        assertThatThrownBy(() -> consumer.consume(nullFields, ack))
+                .isInstanceOf(RuntimeException.class);
+        verify(ack, never()).acknowledge();
+    }
 }

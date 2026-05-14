@@ -207,6 +207,10 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       DB_URL: "jdbc:mysql://mysql:3306/learnpulse_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
       KAFKA_SERVERS: kafka:9092
+      # Certificate emails — set these to enable Mailgun delivery
+      MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
+      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-sandbox.mailgun.org}
+      MAILGUN_FROM: ${MAILGUN_FROM:-noreply@learnpulse.dev}
     networks:
       - learnpulse
     ports:

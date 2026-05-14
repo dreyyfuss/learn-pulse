@@ -75,13 +75,15 @@ public class CertificateService {
         cert.setCourseId(UUID.fromString(event.getCourseId()));
         cert.setEnrolmentId(UUID.fromString(event.getEnrolmentId()));
         cert.setS3Key(s3Key);
+        cert.setLearnerName(user.fullName());
+        cert.setCourseName(course.title());
         certificateRepository.save(cert);
 
         // Persist idempotency log in the SAME transaction
         idempotencyLogRepository.save(new IdempotencyLog(eventId, "course.completed"));
 
         // Queue certificate.generated event via outbox (same transaction)
-        queueCertificateGenerated(event, certUuid, s3Key);
+        queueCertificateGenerated(event, certUuid, s3Key, user.fullName(), course.title());
 
         log.info("Certificate issued certUuid={} userId={} courseId={}",
                 certUuid, event.getUserId(), event.getCourseId());
@@ -89,7 +91,8 @@ public class CertificateService {
     }
 
     private void
-    queueCertificateGenerated(CourseCompletedEvent event, String certUuid, String s3Key) {
+    queueCertificateGenerated(CourseCompletedEvent event, String certUuid, String s3Key,
+                               String learnerName, String courseName) {
         CertificateGeneratedEvent outEvent = CertificateGeneratedEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .occurredAt(Instant.now().toString())
@@ -99,6 +102,8 @@ public class CertificateService {
                 .s3Key(s3Key)
                 .issuedAt(Instant.now().toString())
                 .downloadUrl(s3Service.presignedUrl(s3Key, Duration.ofDays(7)))
+                .courseName(courseName)
+                .learnerName(learnerName)
                 .build();
         try {
             OutboxEvent outbox = new OutboxEvent();

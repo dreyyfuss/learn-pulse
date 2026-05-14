@@ -5,8 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('alex@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
           </div>
           <div className="field">
             <label>Password</label>
-            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" />
           </div>
 
           {error && <p style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>{error}</p>}

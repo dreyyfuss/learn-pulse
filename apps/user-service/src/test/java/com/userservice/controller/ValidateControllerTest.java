@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,8 +38,8 @@ class ValidateControllerTest {
 
     @Autowired MockMvc mockMvc;
 
-    @MockBean JwtService jwtService;
-    @MockBean BlacklistService blacklistService;
+    @MockitoBean JwtService jwtService;
+    @MockitoBean BlacklistService blacklistService;
 
     private static final UUID USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final String TOKEN = "valid.access.token";

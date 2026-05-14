@@ -3,6 +3,7 @@ import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
+import Pagination from '../../components/Pagination';
 import adminService from '../../services/adminService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonTableRows } from '../../components/Skeleton';
@@ -14,17 +15,28 @@ export default function CourseManagement() {
   const [courses, setCourses]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
+  const [search, setSearch]       = useState('');
+  const [page, setPage]           = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [deleteModal, setDeleteModal] = useState(null);
   const [toast, setToast]         = useState('');
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 4000); };
 
   useEffect(() => {
-    adminService.getCourses({ size: 100 })
-      .then(page => setCourses(page.content ?? []))
-      .catch(e => setError(getErrorMessage(e)))
-      .finally(() => setLoading(false));
-  }, []);
+    const t = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      adminService.getCourses({ size: 20, page, ...(search.trim() ? { q: search.trim() } : {}) })
+        .then(data => {
+          setCourses(data.content ?? []);
+          setTotalPages(data.totalPages ?? 1);
+        })
+        .catch(e => setError(getErrorMessage(e)))
+        .finally(() => setLoading(false));
+    }, search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [search, page]);
 
   const handleDelete = (courseId) => {
     adminService.deleteCourse(courseId)
@@ -47,7 +59,13 @@ export default function CourseManagement() {
         </div>
       )}
 
-      <div className="table-wrap admin-courses-table" style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--rule)', borderRadius: 8, padding: '8px 14px', maxWidth: 360, marginBottom: 20 }}>
+        <Icon name="search" size={15} color="var(--ink-3)" />
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search courses…"
+          style={{ border: 0, outline: 0, background: 'transparent', font: 'inherit', fontSize: 14, flex: 1, color: 'var(--ink)' }} />
+      </div>
+
+      <div className="table-wrap admin-courses-table">
         <div className="table-row head" style={{ gridTemplateColumns: GRID }}>
           <div>Title</div><div>Instructor</div><div>Visibility</div><div>Status</div><div>Action</div>
         </div>
@@ -82,6 +100,8 @@ export default function CourseManagement() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {deleteModal && (
         <Modal title="Delete course?" onClose={() => setDeleteModal(null)}

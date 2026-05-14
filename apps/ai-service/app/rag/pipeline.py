@@ -11,9 +11,6 @@ from app.rag.embedder import Embedder
 
 logger = logging.getLogger(__name__)
 
-from langchain_cerebras import ChatCerebras
-from langchain.schema import HumanMessage, SystemMessage
-
 class RagPipeline:
     def __init__(self, embedder: Embedder) -> None:
         self._embedder = embedder

@@ -19,6 +19,7 @@ public record CourseAnalyticsResponse(
 
     public record LearnerStat(
             UUID userId,
+            String fullName,
             EnrolmentStatus enrolmentStatus,
             LocalDateTime enrolledAt,
             LocalDateTime completedAt,
