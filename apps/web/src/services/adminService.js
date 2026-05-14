@@ -17,7 +17,7 @@ const adminService = {
   getCourses:   (p = {})           => api.get(`/api/admin/courses${qs(p)}`).then(r => r.data),
   deleteCourse: (id)               => api.delete(`/api/courses/${id}`),
 
-  getEnrolments: ()                => api.get('/api/admin/enrolments').then(r => r.data),
+  getEnrolments: (p = {})          => api.get(`/api/admin/enrolments${qs(p)}`).then(r => r.data),
   enrol:        (userId, courseId) => api.post('/api/admin/enrolments', { userId, courseId }).then(r => r.data),
   unenrol:      (id)               => api.delete(`/api/admin/enrolments/${id}`),
 };

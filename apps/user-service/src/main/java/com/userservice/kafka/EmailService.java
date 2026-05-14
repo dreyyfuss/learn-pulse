@@ -70,16 +70,18 @@ public class EmailService {
         User user = userRepository.findById(UUID.fromString(event.getUserId()))
                 .orElseThrow(() -> new RuntimeException("User not found: " + event.getUserId()));
 
-        mailgunClient.send(
+        String learnerName = event.getLearnerName() != null && !event.getLearnerName().isBlank()
+                ? event.getLearnerName() : user.getFullName();
+        String courseName  = event.getCourseName()  != null && !event.getCourseName().isBlank()
+                ? event.getCourseName() : event.getCourseId();
+
+        mailgunClient.sendHtml(
                 user.getEmail(),
                 user.getFullName(),
-                "certificate_delivery",
-                Map.of(
-                        "userName",      user.getFullName(),
-                        "courseId",      event.getCourseId(),
-                        "certificateId", event.getCertificateId(),
-                        "downloadUrl",   event.getDownloadUrl() != null
-                                                 ? event.getDownloadUrl() : ""
+                CertificateEmailBuilder.subject(courseName),
+                CertificateEmailBuilder.html(
+                        learnerName, courseName,
+                        event.getDownloadUrl(), event.getCertificateId(), event.getIssuedAt()
                 )
         );
 

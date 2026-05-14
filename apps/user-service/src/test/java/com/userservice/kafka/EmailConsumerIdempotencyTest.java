@@ -11,7 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
@@ -55,7 +55,7 @@ class EmailConsumerIdempotencyTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
     }
 
-    @MockBean
+    @MockitoBean
     MailgunClient mailgunClient;
 
     @Autowired

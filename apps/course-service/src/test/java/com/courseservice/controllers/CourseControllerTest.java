@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -51,9 +51,9 @@ class CourseControllerTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
 
-    @MockBean CourseService courseService;
-    @MockBean ModuleService moduleService;
-    @MockBean LessonService lessonService;
+    @MockitoBean CourseService courseService;
+    @MockitoBean ModuleService moduleService;
+    @MockitoBean LessonService lessonService;
 
     private static final UUID INSTRUCTOR_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID ADMIN_ID      = UUID.fromString("00000000-0000-0000-0000-000000000002");

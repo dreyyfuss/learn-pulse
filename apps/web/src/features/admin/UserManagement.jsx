@@ -4,6 +4,7 @@ import Tag from '../../components/Tag';
 import Avatar from '../../components/Avatar';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
+import Pagination from '../../components/Pagination';
 import adminService from '../../services/adminService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonTableRows } from '../../components/Skeleton';
@@ -30,32 +31,30 @@ export default function UserManagement() {
   const [error, setError]       = useState(null);
   const [search, setSearch]     = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+  const [page, setPage]         = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [toast, setToast]       = useState('');
   const [confirmModal, setConfirmModal] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
-  const fetchUsers = (role) => {
-    setLoading(true);
-    setError(null);
-    adminService.getUsers({ size: 100, ...(role ? { role } : {}) })
-      .then(page => setUsers((page.content ?? []).map(normalize)))
-      .catch(e => setError(getErrorMessage(e)))
-      .finally(() => setLoading(false));
-  };
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      const role = ROLE_PARAMS[roleFilter];
+      adminService.getUsers({ size: 20, page, ...(role ? { role } : {}), ...(search.trim() ? { q: search.trim() } : {}) })
+        .then(data => {
+          setUsers((data.content ?? []).map(normalize));
+          setTotalPages(data.totalPages ?? 1);
+        })
+        .catch(e => setError(getErrorMessage(e)))
+        .finally(() => setLoading(false));
+    }, search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [search, roleFilter, page]);
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  const handleRoleFilter = (r) => {
-    setRoleFilter(r);
-    fetchUsers(ROLE_PARAMS[r]);
-  };
-
-  const filtered = users.filter(u => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
-  });
+  const handleRoleFilter = (r) => { setRoleFilter(r); setPage(0); };
 
   const handleAction = (userId, action) => {
     const call = action === 'promote'   ? adminService.promote(userId)
@@ -85,7 +84,7 @@ export default function UserManagement() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--rule)', borderRadius: 8, padding: '8px 14px', flex: 1, maxWidth: 360 }}>
           <Icon name="search" size={15} color="var(--ink-3)" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…"
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search by name or email…"
             style={{ border: 0, outline: 0, background: 'transparent', font: 'inherit', fontSize: 14, flex: 1, color: 'var(--ink)' }} />
         </div>
         <div className="filter-row" style={{ margin: 0 }}>
@@ -103,7 +102,7 @@ export default function UserManagement() {
 
         {loading && <SkeletonTableRows cols={GRID} widths={['70%','70%','70%','60%','65%','70%']} count={4} />}
 
-        {!loading && filtered.map(u => (
+        {!loading && users.map(u => (
           <div key={u.id} className="table-row body" style={{ gridTemplateColumns: GRID }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Avatar name={u.name} size={28} />
@@ -137,12 +136,14 @@ export default function UserManagement() {
           </div>
         ))}
 
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && users.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '40px 24px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 14 }}>
             No users found.
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {confirmModal && (
         <Modal title={confirmModal.label} onClose={() => setConfirmModal(null)}

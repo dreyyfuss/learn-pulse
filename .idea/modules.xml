@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/apps/cert-service/cert-service.iml" filepath="$PROJECT_DIR$/apps/cert-service/cert-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/learn-pulse.iml" filepath="$PROJECT_DIR$/.idea/learn-pulse.iml" />
     </modules>
   </component>

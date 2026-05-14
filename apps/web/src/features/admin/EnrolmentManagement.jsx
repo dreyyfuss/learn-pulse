@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Notification from '../../components/Notification';
+import Pagination from '../../components/Pagination';
 import adminService from '../../services/adminService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonTableRows } from '../../components/Skeleton';
@@ -15,7 +16,11 @@ export default function EnrolmentManagement() {
   const [learners, setLearners]     = useState([]);
   const [courses, setCourses]       = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [tableLoading, setTableLoading] = useState(true);
   const [error, setError]           = useState(null);
+  const [page, setPage]             = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [learnerSearch, setLearnerSearch] = useState('');
   const [courseSearch, setCourseSearch]   = useState('');
@@ -29,15 +34,26 @@ export default function EnrolmentManagement() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      adminService.getEnrolments().then(p => p.content ?? []),
       adminService.getUsers({ role: 'LEARNER', size: 100 }).then(p => (p.content ?? []).map(u => ({ ...u, name: u.fullName }))),
       adminService.getCourses({ size: 100 }).then(p => p.content ?? []),
     ])
-      .then(([enrs, lrns, crs]) => { setEnrolments(enrs); setLearners(lrns); setCourses(crs); })
+      .then(([lrns, crs]) => { setLearners(lrns); setCourses(crs); })
       .catch(e => setError(getErrorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    setTableLoading(true);
+    adminService.getEnrolments({ size: 20, page })
+      .then(data => {
+        setEnrolments(data.content ?? []);
+        setTotalPages(data.totalPages ?? 1);
+      })
+      .catch(e => setError(getErrorMessage(e)))
+      .finally(() => setTableLoading(false));
+  }, [page, refreshKey]);
 
   const filteredLearners = learners.filter(u =>
     !learnerSearch || u.name?.toLowerCase().includes(learnerSearch.toLowerCase()) || u.email?.toLowerCase().includes(learnerSearch.toLowerCase())
@@ -50,20 +66,11 @@ export default function EnrolmentManagement() {
     if (!selectedLearner || !selectedCourse) return;
     setEnrolling(true);
     adminService.enrol(selectedLearner.id, selectedCourse.id)
-      .then(resp => {
-        setEnrolments(es => [{
-          enrolmentId: resp.enrolmentId,
-          userId: selectedLearner.id,
-          courseId: selectedCourse.id,
-          courseTitle: selectedCourse.title,
-          status: 'ACTIVE',
-          enrolledAt: new Date().toISOString(),
-          completedAt: null,
-          _learnerName: selectedLearner.name,
-          _learnerEmail: selectedLearner.email,
-        }, ...es]);
+      .then(() => {
         showToast(`${selectedLearner.name} enrolled in ${selectedCourse.title}.`);
         setSelectedLearner(null); setSelectedCourse(null); setLearnerSearch(''); setCourseSearch('');
+        setPage(0);
+        setRefreshKey(k => k + 1);
       })
       .catch(e => showToast(getErrorMessage(e)))
       .finally(() => setEnrolling(false));
@@ -74,6 +81,8 @@ export default function EnrolmentManagement() {
       .then(() => { setEnrolments(es => es.filter(e => e.enrolmentId !== enrolmentId)); showToast('Learner unenrolled.'); })
       .catch(e => showToast(getErrorMessage(e)));
   };
+
+  const anyLoading = loading || tableLoading;
 
   return (
     <div className="main">
@@ -146,15 +155,15 @@ export default function EnrolmentManagement() {
           <div>Learner</div><div>Course</div><div>Status</div><div>Enrolled</div><div>Action</div>
         </div>
 
-        {loading && <SkeletonTableRows cols={GRID} widths={['70%','70%','55%','60%','40%']} count={3} />}
+        {anyLoading && <SkeletonTableRows cols={GRID} widths={['70%','70%','55%','60%','40%']} count={3} />}
 
-        {!loading && !error && enrolments.length === 0 && (
+        {!anyLoading && !error && enrolments.length === 0 && (
           <div style={{ gridColumn: '1 / -1', padding: '40px 24px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 14 }}>
             No enrolments found.
           </div>
         )}
 
-        {!loading && enrolments.map(e => (
+        {!anyLoading && enrolments.map(e => (
           <div key={e.enrolmentId} className="table-row body" style={{ gridTemplateColumns: GRID }}>
             <div>
               <div style={{ fontWeight: 500, fontSize: 14 }}>
@@ -178,6 +187,9 @@ export default function EnrolmentManagement() {
           </div>
         ))}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+
       {toast && <Notification>{toast}</Notification>}
     </div>
   );

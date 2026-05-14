@@ -13,6 +13,8 @@ public class CertificateResponse {
     private UUID id;
     private String certificateUuid;
     private UUID courseId;
+    private String learnerName;
+    private String courseName;
     private LocalDateTime issuedAt;
     private String downloadUrl;
 
@@ -21,6 +23,8 @@ public class CertificateResponse {
                 .id(cert.getId())
                 .certificateUuid(cert.getCertificateUuid())
                 .courseId(cert.getCourseId())
+                .learnerName(cert.getLearnerName())
+                .courseName(cert.getCourseName())
                 .issuedAt(cert.getIssuedAt())
                 .build();
     }

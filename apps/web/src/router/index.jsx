@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
 import AppLayout from '../components/AppLayout';
@@ -19,9 +19,10 @@ import UserManagement from '../features/admin/UserManagement';
 import CourseManagement from '../features/admin/CourseManagement';
 import EnrolmentManagement from '../features/admin/EnrolmentManagement';
 import NotFound from '../features/NotFound';
+import LandingPage from '../features/LandingPage';
 
 const router = createBrowserRouter([
-  { index: true, element: <Navigate to="/learn/dashboard" replace /> },
+  { index: true, element: <LandingPage /> },
   { path: 'login',    element: <LoginPage /> },
   { path: 'register', element: <RegisterPage /> },
   {

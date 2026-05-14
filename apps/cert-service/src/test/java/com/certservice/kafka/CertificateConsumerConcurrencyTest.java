@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -51,11 +51,11 @@ class CertificateConsumerConcurrencyTest {
     @Autowired CertificateRepository      certificateRepository;
     @Autowired IdempotencyLogRepository   idempotencyLogRepository;
 
-    @MockBean UserServiceClient   userServiceClient;
-    @MockBean CourseServiceClient courseServiceClient;
-    @MockBean PdfService          pdfService;
-    @MockBean S3Service           s3Service;
-    @MockBean KafkaTemplate<String, String> kafkaTemplate;   // prevents outbox publisher from connecting
+    @MockitoBean UserServiceClient   userServiceClient;
+    @MockitoBean CourseServiceClient courseServiceClient;
+    @MockitoBean PdfService          pdfService;
+    @MockitoBean S3Service           s3Service;
+    @MockitoBean KafkaTemplate<String, String> kafkaTemplate;   // prevents outbox publisher from connecting
 
     private CourseCompletedEvent event;
 

@@ -79,7 +79,7 @@ function sortRows(rows, key, dir) {
 
 // ─── Column definitions ──────────────────────────────────────────────────────
 const COLS = [
-  { key: 'userId',          label: 'Learner',      width: '1.4fr' },
+  { key: 'fullName',        label: 'Learner',      width: '1.4fr' },
   { key: 'enrolmentStatus', label: 'Status',        width: '100px' },
   { key: 'progressPct',     label: 'Progress',      width: '1.6fr' },
   { key: 'lessonsCompleted',label: 'Lessons done',  width: '100px' },
@@ -292,8 +292,8 @@ export default function CourseAnalytics() {
         {/* Data rows */}
         {!loading && sorted.map(row => (
           <div key={row.userId} className="table-row body" style={{ gridTemplateColumns: GRID }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-2)' }}>
-              {row.userId.slice(0, 8)}…
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500 }}>
+              {row.fullName ?? `${row.userId.slice(0, 8)}…`}
             </div>
             <div>
               {row.enrolmentStatus === 'COMPLETED'
