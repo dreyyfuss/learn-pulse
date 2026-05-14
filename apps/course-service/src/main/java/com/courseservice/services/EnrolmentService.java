@@ -2,6 +2,7 @@ package com.courseservice.services;
 
 import com.courseservice.dto.request.AdminEnrolRequest;
 import com.courseservice.dto.request.EnrolRequest;
+import com.courseservice.dto.response.AdminEnrolmentResponse;
 import com.courseservice.dto.response.EnrolmentResponse;
 import com.courseservice.dto.response.EnrolmentSummaryResponse;
 import com.courseservice.dto.response.PageResponse;
@@ -23,6 +24,8 @@ import com.courseservice.repositories.LessonRepository;
 import com.courseservice.repositories.ModuleRepository;
 import com.courseservice.repositories.ModuleUnlockRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -44,6 +47,10 @@ public class EnrolmentService {
     private final LessonProgressRepository lessonProgressRepository;
     private final EnrolmentEventProducer enrolmentEventProducer;
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
+            @CacheEvict(cacheNames = "analytics:admin",      key = "'platform'")
+    })
     @Transactional
     public EnrolmentResponse enrol(EnrolRequest req, UUID userId) {
         Course course = courseRepository.findById(req.courseId())
@@ -120,6 +127,10 @@ public class EnrolmentService {
         return PageResponse.from(mapped);
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
+            @CacheEvict(cacheNames = "analytics:admin",      key = "'platform'")
+    })
     @Transactional
     public EnrolmentResponse adminEnrol(AdminEnrolRequest req) {
         Course course = courseRepository.findById(req.courseId())
@@ -138,6 +149,10 @@ public class EnrolmentService {
         return EnrolmentResponse.from(enrolment);
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
+            @CacheEvict(cacheNames = "analytics:admin",      key = "'platform'")
+    })
     @Transactional
     public void adminUnenrol(UUID enrolmentId) {
         Enrolment enrolment = enrolmentRepository.findById(enrolmentId)
@@ -146,6 +161,11 @@ public class EnrolmentService {
         UUID courseId = enrolment.getCourse().getId();
         lessonProgressRepository.deleteByUserIdAndCourseId(enrolment.getUserId(), courseId);
         enrolmentRepository.delete(enrolment);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminEnrolmentResponse> listAllEnrolments(Pageable pageable) {
+        return enrolmentRepository.findAll(pageable).map(AdminEnrolmentResponse::from);
     }
 
     private com.courseservice.models.Module getFirstModule(UUID courseId) {

@@ -11,6 +11,8 @@ import com.courseservice.exception.ResourceNotFoundException;
 import com.courseservice.models.*;
 import com.courseservice.repositories.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,10 @@ public class LessonProgressService {
     private final ModuleRepository moduleRepository;
     private final CourseEventProducer courseEventProducer;
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
+            @CacheEvict(cacheNames = "analytics:admin",      key = "'platform'")
+    })
     @Transactional
     public LessonCompleteResponse complete(UUID lessonId, UUID userId) {
         Lesson lesson = lessonRepository.findById(lessonId)

@@ -30,6 +30,9 @@ public class OutboxEvent {
     @Column(nullable = false, length = 10)
     private OutboxStatus status = OutboxStatus.PENDING;
 
+    @Column(name = "trace_id", length = 36)
+    private String traceId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

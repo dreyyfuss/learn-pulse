@@ -1,0 +1,1 @@
+CREATE INDEX idx_lesson_progress_lesson_id ON lesson_progress (lesson_id);

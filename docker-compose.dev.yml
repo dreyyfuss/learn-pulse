@@ -33,7 +33,7 @@ services:
       - mysql-data:/var/lib/mysql
       - ./infrastructure/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "3306:3306"
+      - "3307:3306"
     networks:
       - learnpulse
     healthcheck:
@@ -319,6 +319,17 @@ services:
       traefik.http.services.course-svc.loadbalancer.server.port: "8080"
     restart: unless-stopped
 
+  web:
+    build:
+      context: ./apps/web
+    networks:
+      - learnpulse
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
   # ── Monitoring ────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.53.0

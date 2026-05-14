@@ -1,11 +1,13 @@
 ﻿import asyncio
 import json
 import logging
+import uuid
 
 from aiokafka import AIOKafkaConsumer
 from pydantic import ValidationError
 
 from app.config.settings import settings
+from app.middleware.trace import trace_id_var
 from app.rag.indexer import CourseIndexer
 from app.schemas.course import CoursePublishedEvent
 
@@ -56,25 +58,37 @@ class CoursePublishedConsumer:
                 )
 
     async def _handle(self, msg) -> None:
-        raw = msg.value.decode("utf-8") if isinstance(msg.value, bytes) else msg.value
+        raw_trace = next(
+            (v for k, v in (msg.headers or []) if k == "trace-id"),
+            None,
+        )
+        trace_id = (
+            raw_trace.decode() if isinstance(raw_trace, bytes) else raw_trace
+        ) or str(uuid.uuid4())
+        token = trace_id_var.set(trace_id)
+
         try:
-            event = CoursePublishedEvent.model_validate(json.loads(raw))
-        except (json.JSONDecodeError, ValidationError):
-            logger.exception("Invalid course.published payload offset=%s", msg.offset)
-            return
+            raw = msg.value.decode("utf-8") if isinstance(msg.value, bytes) else msg.value
+            try:
+                event = CoursePublishedEvent.model_validate(json.loads(raw))
+            except (json.JSONDecodeError, ValidationError):
+                logger.exception("Invalid course.published payload offset=%s", msg.offset)
+                return
 
-        logger.info(
-            "course.published received courseId=%s title=%r instructor=%r lessons=%d",
-            event.courseId,
-            event.title,
-            event.instructor.fullName,
-            len(event.lessons),
-        )
+            logger.info(
+                "course.published received courseId=%s title=%r instructor=%r lessons=%d",
+                event.courseId,
+                event.title,
+                event.instructor.fullName,
+                len(event.lessons),
+            )
 
-        # Embedding is CPU-bound; run off the event loop to keep it unblocked
-        total_chunks = await asyncio.to_thread(self._indexer.index, event)
-        logger.info(
-            "Indexing complete courseId=%s total_chunks=%d",
-            event.courseId,
-            total_chunks,
-        )
+            # Embedding is CPU-bound; run off the event loop to keep it unblocked
+            total_chunks = await asyncio.to_thread(self._indexer.index, event)
+            logger.info(
+                "Indexing complete courseId=%s total_chunks=%d",
+                event.courseId,
+                total_chunks,
+            )
+        finally:
+            trace_id_var.reset(token)

@@ -5,6 +5,8 @@ import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import courseService from '../../services/courseService';
+import { getErrorMessage } from '../../utils/errorMessages';
+import { SkeletonCourseCard } from '../../components/Skeleton';
 
 export default function CourseDiscovery() {
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ export default function CourseDiscovery() {
         const published = (data.items ?? []).filter(c => c.status === 'PUBLISHED');
         setCourses(published);
       })
-      .catch(err => setError(err.message || 'Could not load courses.'))
+      .catch(err => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -85,7 +87,7 @@ export default function CourseDiscovery() {
 
       {/* States */}
       {loading && (
-        <p style={{ color: 'var(--ink-3)', textAlign: 'center', padding: '60px 0' }}>Loading…</p>
+        <div className="course-grid">{[0,1,2].map(i => <SkeletonCourseCard key={i} />)}</div>
       )}
 
       {error && (

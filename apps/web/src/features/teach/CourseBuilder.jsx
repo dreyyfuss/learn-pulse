@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import LessonContentUpload from '../../components/LessonContentUpload';
 import courseService from '../../services/courseService';
+import { getErrorMessage } from '../../utils/errorMessages';
 
 
 // ─── Edit-course builder ─────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ function EditCourseBuilder({ courseId }) {
             .catch(() => {});
         }
       })
-      .catch(err => setLoadError(err.message || 'Could not load course.'))
+      .catch(err => setLoadError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [courseId]);
 
@@ -73,7 +74,7 @@ function EditCourseBuilder({ courseId }) {
       setCourse(prev => ({ ...prev, ...updated }));
       showToast('Draft saved.');
     } catch (err) {
-      showToast('Save failed: ' + err.message);
+      showToast(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -89,11 +90,7 @@ function EditCourseBuilder({ courseId }) {
       setShowPublish(false);
       showToast('Course published.');
     } catch (err) {
-      if (err.status === 422) {
-        setPublishError(err.message || 'Each module must contain at least one lesson.');
-      } else {
-        setPublishError(err.message || 'Publish failed.');
-      }
+      setPublishError(getErrorMessage(err));
     } finally {
       setPublishing(false);
     }
@@ -112,7 +109,7 @@ function EditCourseBuilder({ courseId }) {
       setNewModuleTitle('');
       setAddingModule(false);
     } catch (err) {
-      showToast('Failed to add module: ' + err.message);
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -123,7 +120,7 @@ function EditCourseBuilder({ courseId }) {
       setModules(prev => prev.filter(m => m.id !== moduleId));
       if (activeLesson?.moduleId === moduleId) setActiveLesson(null);
     } catch (err) {
-      showToast('Failed to delete module: ' + err.message);
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -144,7 +141,7 @@ function EditCourseBuilder({ courseId }) {
       setNewLessonTitle('');
       setAddingLessonModuleId(null);
     } catch (err) {
-      showToast('Failed to add lesson: ' + err.message);
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -157,7 +154,7 @@ function EditCourseBuilder({ courseId }) {
       ));
       if (activeLesson?.lesson?.id === lessonId) setActiveLesson(null);
     } catch (err) {
-      showToast('Failed to delete lesson: ' + err.message);
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -182,7 +179,7 @@ function EditCourseBuilder({ courseId }) {
       setActiveLesson({ lesson: { ...lesson, ...updated }, moduleId });
       showToast('Lesson saved.');
     } catch (err) {
-      showToast('Save failed: ' + err.message);
+      showToast(getErrorMessage(err));
     } finally {
       setSaving(false);
     }

@@ -9,10 +9,14 @@ import com.userservice.repository.IdempotencyLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.MDC;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -31,6 +35,12 @@ public class EmailConsumer {
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
         String topic = record.topic();
         String raw = record.value();
+
+        org.apache.kafka.common.header.Header h = record.headers().lastHeader("trace-id");
+        String traceId = (h != null)
+                ? new String(h.value(), StandardCharsets.UTF_8)
+                : UUID.randomUUID().toString();
+        MDC.put("traceId", traceId);
 
         try {
             JsonNode root = objectMapper.readTree(raw);
@@ -66,6 +76,8 @@ public class EmailConsumer {
         } catch (Exception e) {
             log.error("Processing failed topic={} offset={}", topic, record.offset(), e);
             throw new RuntimeException(e);
+        } finally {
+            MDC.clear();
         }
     }
 }

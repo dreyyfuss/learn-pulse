@@ -54,6 +54,10 @@ app:
   service-auth:
     secret: ${SERVICE_AUTH_SECRET:change-me-in-dev}
 
+services:
+  user-service:
+    url: ${USER_SERVICE_URL:http://user-service:8081}
+
 server:
   port: 8080
 

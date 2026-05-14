@@ -1,5 +1,6 @@
 package com.courseservice.repositories;
 
+import com.courseservice.enums.CourseStatus;
 import com.courseservice.enums.CourseVisibility;
 import com.courseservice.models.Course;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,10 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
             @Param("category") String category,
             @Param("visibility") CourseVisibility visibility,
             Pageable pageable);
+
+    long countByStatus(CourseStatus status);
+
+    Page<Course> findByTitleContainingIgnoreCase(String title, Pageable pageable);
 
     Page<Course> findAllByInstructorId(UUID instructorId, Pageable pageable);
 }

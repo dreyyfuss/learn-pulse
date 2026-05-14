@@ -9,6 +9,9 @@ const courseService = {
     return api.get(`/api/courses${qs ? `?${qs}` : ''}`).then(r => r.data);
   },
 
+  listOwn:  ()           => api.get('/api/instructor/courses').then(r => r.data),
+  analytics:(id)         => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
+  get:      (id)         => api.get(`/api/courses/${id}`).then(r => r.data),
   listOwn:        ()     => api.get('/api/instructor/courses').then(r => r.data),
   get:            (id)   => api.get(`/api/courses/${id}`).then(r => r.data),
   getEnrolmentCode: (id) => api.get(`/api/courses/${id}/enrolment-code`).then(r => r.data),

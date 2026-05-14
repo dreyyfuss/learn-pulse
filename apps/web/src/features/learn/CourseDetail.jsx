@@ -8,6 +8,8 @@ import Notification from '../../components/Notification';
 import ProgressBar from '../../components/ProgressBar';
 import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
+import { getErrorMessage } from '../../utils/errorMessages';
+import { SkeletonLine } from '../../components/Skeleton';
 
 export default function CourseDetail() {
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ export default function CourseDetail() {
         const match = (enrolData.items ?? []).find(e => e.courseId === courseId);
         setEnrolment(match ?? null);
       })
-      .catch(err => setError(err.message || 'Could not load course.'))
+      .catch(err => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -70,7 +72,7 @@ export default function CourseDetail() {
           setEnrolment(match ?? null);
         });
       } else {
-        showToast(err.message || 'Could not enrol.');
+        showToast(getErrorMessage(err));
       }
     } finally {
       setSubmitting(false);
@@ -83,7 +85,7 @@ export default function CourseDetail() {
       await enrolmentService.startEnrolment(enrolment.enrolmentId);
       navigate(`/learn/courses/${id}/play`);
     } catch (err) {
-      showToast('Could not start: ' + err.message);
+      showToast(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -115,14 +117,22 @@ export default function CourseDetail() {
           setEnrolment(match ?? null);
         });
       } else {
-        setCodeError(err.message || 'Something went wrong.');
+        setCodeError(getErrorMessage(err));
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="main"><p style={{ color: 'var(--ink-3)' }}>Loading…</p></div>;
+  if (loading) return (
+    <div className="main">
+      <span className="skeleton" style={{ display: 'block', height: 220, borderRadius: 16, marginBottom: 32 }} />
+      <SkeletonLine width="18%" height={18} style={{ marginBottom: 16 }} />
+      {[0,1,2].map(i => (
+        <span key={i} className="skeleton" style={{ display: 'block', height: 52, borderRadius: 8, marginBottom: 2 }} />
+      ))}
+    </div>
+  );
   if (error)   return <div className="main"><p style={{ color: 'var(--danger)' }}>{error}</p></div>;
 
   const totalLessons = course.modules?.reduce((a, m) => a + (m.lessons?.length ?? 0), 0) ?? 0;
