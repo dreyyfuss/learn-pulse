@@ -24,7 +24,7 @@ jobs:
           envs: APP_S3_PUBLIC_ENDPOINT,SERVICE_AUTH_SECRET,CEREBRAS_API_KEY,GROQ_API_KEY,BREVO_API_KEY
           script: |
             set -e
-            cd /opt/learn-pulse
+            cd /home/ubuntu/learn-pulse
             git pull origin main
 
             printf 'APP_S3_PUBLIC_ENDPOINT=%s\nSERVICE_AUTH_SECRET=%s\nCEREBRAS_API_KEY=%s\nCEREBRAS_MODEL=llama-3.1-8b\nGROQ_API_KEY=%s\nBREVO_API_KEY=%s\n' \
