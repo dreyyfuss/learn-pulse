@@ -12,7 +12,7 @@ class CertificateEmailBuilder {
             .withZone(ZoneOffset.UTC);
 
     static String subject(String courseName) {
-        return "Your certificate for "" + courseName + "" is ready";
+        return "Your certificate for \"" + courseName + "\" is ready";
     }
 
     static String html(String learnerName, String courseName,
