@@ -780,9 +780,9 @@ All API responses follow the envelope format:
 |---|---|
 | **Frontend** | React (web) |
 | **API Gateway** | Traefik v3 |
-| **Course Service** | Java 17 + Spring Boot 3 (`apps/course-service`) |
-| **User Service** | Java 17 + Spring Boot 3 (`apps/user-service`) |
-| **Certificate Service** | Java 17 + Spring Boot 3 (`apps/cert-service`) |
+| **Course Service** | Java 21+ + Spring Boot 3 (`apps/course-service`) |
+| **User Service** | Java 21+ + Spring Boot 3 (`apps/user-service`) |
+| **Certificate Service** | Java 21+ + Spring Boot 3 (`apps/cert-service`) |
 | **AI Microservice** | Python + FastAPI + LangChain (`apps/ai-service`) |
 | **Databases** | MySQL 8 — one database per service |
 | **Message Broker** | Apache Kafka |

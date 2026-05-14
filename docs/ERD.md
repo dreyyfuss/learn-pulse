@@ -320,7 +320,8 @@ Each service manages its own Flyway migrations independently.
 ### Certificate Service — `apps/cert-service/src/main/resources/db/migration/`
 
 | Version | File | Purpose |
-|---|---|---|
+|---
+|---|---|
 | V1 | `V1__create_certificates.sql` | `certificates` (with composite UK `(user_id, course_id)`), `idempotency_log` (certificate consumer) |
 
 ---

@@ -64,6 +64,16 @@ jwt:
   access-token-expiry: 900       # 15 minutes
   refresh-token-expiry: 604800   # 7 days
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  paths-to-exclude: /internal/**
+
 logging:
   level:
     com.userservice: INFO
