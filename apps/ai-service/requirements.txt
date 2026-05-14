@@ -3,12 +3,28 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic-settings>=2.6.0
 
-# ── Kafka consumer (Phase 4) ──────────────────────────────────
+# ── Kafka consumer ────────────────────────────────────────────
 aiokafka>=0.12.0
 
-# ── RAG / LLM (Phase 4) ───────────────────────────────────────
+# ── RAG / LLM ─────────────────────────────────────────────────
 langchain>=0.3.0
 langchain-cerebras>=0.3.0
+sentence-transformers>=3.0.0
 
-# ── Vector store (Phase 4) ────────────────────────────────────
+# ── Vector store ──────────────────────────────────────────────
 chromadb>=0.5.0
+
+# ── Session store ─────────────────────────────────────────────
+redis[asyncio]>=5.0.0
+
+# ── HTTP client (service-to-service) ─────────────────────────
+httpx>=0.27.0
+
+# ── Content indexing ──────────────────────────────────────────
+boto3>=1.35.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+groq>=0.12.0
+
+# ── Observability ─────────────────────────────────────────────
+prometheus-fastapi-instrumentator>=6.0.0

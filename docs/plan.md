@@ -28,7 +28,7 @@
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
 | 0.1 | Finalise repo layout (`apps/course-service`, `apps/user-service`, `apps/cert-service`, `apps/web`, `apps/ai-service`, `infrastructure/`, `docs/`). | DEVOPS | S | — | `tree -L 2` matches docs |
-| 0.2 | Author `docker-compose.dev.yml`: MySQL 8 (three databases: `learnpulse_users`, `course_service_db`, `learnpulse_certs`), Kafka (KRaft), Kafka UI, MailHog (local SMTP), MinIO (local S3), **Redis 7**, **Traefik**. | DEVOPS | M | 0.1 | `docker compose up` brings all services healthy |
+| 0.2 | Author `docker-compose.dev.yml`: MySQL 8 (three databases: `learnpulse_users`, `course_service_db`, `learnpulse_certs`), Kafka (KRaft), Kafka UI, MinIO (local S3), **Redis 7**, **Traefik**. Mailgun API is used directly in dev — no local SMTP container needed; ensure `MAILGUN_API_KEY` and `MAILGUN_DOMAIN` are set in `.env`. | DEVOPS | M | 0.1 | `docker compose up` brings all services healthy |
 | 0.3 | Bootstrap LMS Spring Boot 3 app (`apps/course-service`): `pom.xml`, `application.yml`, `HealthController`. Wire Flyway against `course_service_db`. | BE-A | M | 0.1 | `GET /actuator/health` → 200 |
 | 0.4 | Bootstrap React (Vite) app: routing skeleton with `/learn` and `/teach` namespaces (PRD §5.7). | FE-A | M | 0.1 | Two empty dashboards render |
 | 0.5 | Bootstrap FastAPI service: `requirements.txt`, `app/main.py`, `/healthz`. | AI | S | 0.1 | `curl http://localhost:9000/healthz` → 200 |
@@ -47,7 +47,7 @@
 
 ## Phase 1 — Auth & User Domain (Week 2)
 
-> **Service context:** All backend tasks in this phase belong to the **User Service** (`apps/user-service`) and its own database (`learnpulse_users`). The User Service is the sole issuer of JWTs and the authority on user identity. Other services validate JWTs but never write to the users database.
+> **Service context:** All backend tasks in this phase belong to the **User Service** (`apps/user-service`) and its own database (`learnpulse_users`). The User Service is the sole issuer of JWTs and the authority on user identity. Other services **never** validate JWTs directly. Instead, Traefik's ForwardAuth middleware forwards every protected request to `GET /api/auth/validate` on the User Service, which validates the token, checks the Redis blacklist, and returns `X-User-Id`, `X-User-Email`, and `X-User-Roles` response headers. Traefik injects those headers into the upstream request; downstream services read them to identify the caller.
 
 **Goal:** Users can register, log in, and the JWT/role machinery is in place. The frontend has a working login + protected-route guard.
 
@@ -57,7 +57,7 @@
 | 1.2 | JPA entities + repositories: `User`, `UserRole`. | BE-A | S | 1.1 | Unit test: save+load round-trip |
 | 1.3 | `POST /api/auth/register` (learner + instructor variants). BCrypt cost 12. | BE-A | M | 1.2 | Postman: register learner, register instructor → 201 |
 | 1.4 | `POST /api/auth/login`, `POST /api/auth/refresh`. JWT carries `sub`, `email`, `roles`. | BE-A | M | 1.3 | Login returns access + refresh tokens; bad password → 401 |
-| 1.5 | Spring Security filter chain: JWT auth filter, role-based `@PreAuthorize` annotations. Copy JWT verification config to Course Service and Certificate Service as a shared library or replicated config so all three services can validate tokens. | BE-A | M | 1.4 | Protected endpoint without token → 401; with token → 200 on all three services |
+| 1.5 | Spring Security filter chain in **User Service only**: JWT auth filter, role-based `@PreAuthorize` annotations, and a `GET /api/auth/validate` endpoint for Traefik's ForwardAuth middleware. Configure ForwardAuth middleware in Traefik to call this endpoint on every non-public route; the endpoint returns `X-User-Id`, `X-User-Email`, and `X-User-Roles` headers on success. Course Service and Certificate Service wire a lightweight header-reading filter that builds the Spring Security context from these headers — no JWT dependency in downstream services. | BE-A | M | 1.4 | Protected endpoint without token → 401 at Traefik; valid token → Traefik injects headers → 200 on all three services; `@PreAuthorize` role checks work in Course and Cert services |
 | 1.6 | `GET /api/users/me`, `PATCH /api/users/me`. | BE-B | S | 1.5 | Demo updating own profile |
 | 1.7 | Admin endpoints: list users, promote, suspend, reinstate. Suspended users get 403 on next request (`api-spec.md` §3). | BE-B | M | 1.5 | Suspending mid-session blocks subsequent calls |
 | 1.8 | Seed first admin via `V2__seed_admin.sql` in the User Service (reads from env vars at startup). | BE-B | S | 1.1 | Fresh DB has one admin |
@@ -66,7 +66,7 @@
 | 1.11 | Frontend: `<RoleGuard>` component for route protection, role switcher in navbar (visible only to dual-role users — PRD §5.7). | FE-B | M | 1.10 | Toggle navigates between `/learn/*` and `/teach/*` |
 | 1.12 | Tests: unit on `JwtService`, integration on `/api/auth/*`. | BE-A | S | 1.4 | CI green |
 | 1.13 | Wire `spring-boot-starter-data-redis` (Lettuce) in the User Service. Configure `RedisTemplate` bean. All three backend services share the same Redis instance. | BE-A | S | 0.11 | Integration test writes + reads a key |
-| 1.14 | JWT blacklist in Redis: on `PATCH /api/admin/users/{id}/suspend` (User Service), write `blacklist:user:<id>` key (TTL = 7 days). JWT auth filter in **all three services** checks Redis on every authenticated request; hit → 403. On reinstate, delete key. | BE-B | M | 1.13, 1.7 | Suspend user mid-session; next API call to any service returns 403 within same JWT lifetime |
+| 1.14 | JWT blacklist in Redis: on `PATCH /api/admin/users/{id}/suspend` (User Service), write `blacklist:user:<id>` key (TTL = 7 days). The `/api/auth/validate` endpoint (called by Traefik ForwardAuth on every request) checks this key and returns 403 if present — all downstream services are protected automatically through the gateway. On reinstate, delete the key. | BE-B | M | 1.13, 1.7 | Suspend user mid-session; next API call to any service returns 403 within same JWT lifetime |
 
 **Phase 1 DoD:** End-to-end demo — register a learner, register an instructor, log in, switch modes, hit a protected admin endpoint that 403s for non-admins. Suspend a logged-in user and confirm the immediate 403.
 
@@ -124,7 +124,7 @@
 
 ## Phase 4 — Kafka Backbone & Email Pipeline (Week 5)
 
-**Goal:** Real Kafka events replace the stubs. Mailgun (local: MailHog) sends welcome and module-unlocked emails. Idempotency is proven by tests.
+**Goal:** Real Kafka events replace the stubs. Mailgun API sends welcome and module-unlocked emails. Idempotency is proven by tests.
 
 | # | Task | Owner | Est. | Depends on | Acceptance |
 |---|---|---|---|---|---|
@@ -134,7 +134,7 @@
 | 4.4 | Replace `course.published` stub with real event emission via outbox. Schema per `kafka-events.md` §4.1. | BE-A | S | 4.3, 2.7 | Publish a course; consumer logs the event |
 | 4.5 | Emit `user.enrolled` from enrolment service via outbox. | BE-A | S | 4.3, 3.3 | Enrolling produces event |
 | 4.6 | Emit `module.unlocked` and `course.completed` from progress service. Final-module rule: emit `course.completed`, NOT `module.unlocked`. | BE-B | M | 4.3, 3.6 | Final lesson → only `course.completed` |
-| 4.7 | `EmailConsumer` (Spring Boot, group `email-service`): handle `user.enrolled`, `module.unlocked`. Mailgun client (MailHog in dev). Idempotency-log check. | BE-B | L | 4.5, 4.6 | Welcome email visible in MailHog |
+| 4.7 | `EmailConsumer` in **User Service** (Kafka group `email-service`): handle `user.enrolled` and `module.unlocked`. Mailgun API (same credentials in dev and prod). Idempotency-log check. | BE-B | L | 4.5, 4.6 | Welcome email delivered via Mailgun in dev |
 | 4.8 | Integration test with `EmbeddedKafka`: duplicate `eventId` → single email sent. | BE-B | M | 4.7 | Test passes deterministically |
 | 4.9 | DLQ wiring + dashboard panel (Kafka UI is enough for the capstone). | DEVOPS | S | 4.7 | Manually poisoned message lands in `*.dlq` |
 
@@ -144,7 +144,7 @@
 
 ## Phase 5 — Certificate Generation (Week 6)
 
-> **Service context:** This phase builds the **Certificate Service** (`apps/cert-service`) — a standalone Spring Boot application with its own database (`learnpulse_certs`). It consumes `course.completed` from Kafka, generates the PDF, and exposes the certificate endpoints. The Email Consumer that sends the delivery email remains in the Course Service.
+> **Service context:** This phase builds the **Certificate Service** (`apps/cert-service`) — a standalone Spring Boot application with its own database (`learnpulse_certs`). It consumes `course.completed` from Kafka, generates the PDF, and exposes the certificate endpoints. Email sending (welcome, module-unlocked, certificate delivery) lives in the **User Service** alongside the Mailgun client, consumed via Kafka events.
 
 **Goal:** Course completion produces a PDF certificate, stores it in S3 (MinIO locally), inserts the certificate row in the **same DB transaction** as `idempotency_log` (in the Certificate Service's database), and emails the learner.
 
@@ -154,7 +154,7 @@
 | 5.2 | Thymeleaf certificate template + Flying Saucer renderer in Certificate Service. Template includes: learner name, course, instructor, date, cert UUID, logo. To get learner and course details, the Certificate Service calls the User Service and Course Service REST APIs using the `course.completed` event's `userId` and `courseId`. | BE-B | M | 5.1 | Render & open a sample PDF |
 | 5.3 | `CertificateConsumer` in Certificate Service (group `certificate-service`) consuming `course.completed`. Implements the exactly-once flow from `kafka-events.md` §4.4. Flyway V1 (`certificates`, `idempotency_log`) runs on Certificate Service startup. | BE-A | L | 4.6, 5.2 | Single message → single row in `certificates` in `learnpulse_certs` |
 | 5.4 | After successful commit in Certificate Service, emit `certificate.generated` via outbox. | BE-A | S | 5.3, 4.3 | Topic receives event |
-| 5.5 | Extend `EmailConsumer` (Course Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | MailHog shows email with download link |
+| 5.5 | Extend `EmailConsumer` (User Service) to handle `certificate.generated` (template `certificate_delivery`). | BE-B | S | 4.7, 5.4 | Mailgun delivers email with download link |
 | 5.6 | `GET /api/learner/certificates` and `GET /api/certificates/{id}/download` (signed S3 URL, 5 min TTL) — served by Certificate Service; Traefik routes these paths to it automatically. | BE-A | M | 5.3 | Click link → PDF downloads |
 | 5.7 | Concurrency test: two consumer threads receive the same `eventId` simultaneously → exactly one row in `certificates`, one row in `idempotency_log` (Certificate Service DB). | BE-A | M | 5.3 | Test passes ≥ 100 iterations |
 | 5.8 | Frontend: "My Certificates" page (`/learn/certificates`). | FE-A | M | 5.6 | Lists and downloads |
@@ -232,9 +232,54 @@ These don't fit a single phase — assign owners and pull throughout the project
 |---|---|---|
 | **Tests** | Whoever writes the code | Aim for: ≥ 80 % service-layer coverage on backend; one happy-path E2E per Phase DoD. |
 | **CI/CD** | DEVOPS | Lint → build → test → docker image. Branch protection on `main`. |
-| **Observability** | BE-A | Structured JSON logs, `traceId` per request, Kafka UI for topic depth. Redis `INFO stats` (keyspace hits/misses) tracked in the Phase 8 perf report. |
+| **Observability** | BE-A / DEVOPS | Structured JSON logs, `traceId` per request, Kafka UI for topic depth. Redis `INFO stats` (keyspace hits/misses) tracked in the Phase 8 perf report. Prometheus + Grafana monitoring stack (Phase 10) — all four services expose metrics endpoints; the auto-provisioned **LearnPulse Overview** Grafana dashboard covers JVM health, HTTP request rates, and AI service latency. |
 | **Traefik config** | DEVOPS | Two configs: `traefik.dev.yml` (dynamic config, no TLS, dashboard on `:8080`) and `traefik.prod.yml` (TLS via Let's Encrypt / self-signed, dashboard disabled). Both live under `infrastructure/traefik/`. Docker-compose labels on each service container define routing rules and middleware. |
 | **Documentation** | All | Update relevant doc when a behaviour changes. PRs that change an API also touch `api-spec.md`. |
+
+---
+
+## Phase 9 — Content Upload & Display
+
+> **Service context:** Backend changes in course-service. Frontend in `apps/web`. Object storage via MinIO (dev) / S3 (prod).
+
+**Goal:** Instructors can upload video, document, and Markdown article files directly through the Course Builder. Learners see a type-appropriate viewer (HTML5 player, PDF iframe, Markdown renderer). Legacy lessons with a `content_url` continue to work via fallback.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 9.1 | Implement `S3Config` bean in course-service (mirrors cert-service; adds `public-endpoint` override for presigned URLs so browsers can reach MinIO directly). | BE-A | S | 0.2 | `S3Client` + `S3Presigner` beans initialise on startup |
+| 9.2 | Implement `StorageService` in course-service: `presignUploadUrl`, `presignDownloadUrl`, `delete`. | BE-A | S | 9.1 | Manual test: generate presigned PUT URL, upload a file, presigned GET URL returns it |
+| 9.3 | Flyway `V5__add_content_key.sql`: add `content_key` to `lessons`, `s3_key` to `lesson_attachments`, make `s3_url` nullable. Update `Lesson` and `LessonAttachment` JPA entities. | BE-A | S | — | Migrations apply cleanly on fresh DB |
+| 9.4 | Create `LessonContentService` and `LessonContentController` (7 endpoints: content upload-url, confirm, GET, DELETE; attachment upload-url, confirm, GET download-url). | BE-A | M | 9.1, 9.2, 9.3 | Postman: full upload → confirm → GET flow for each content type |
+| 9.5 | `docker-compose.dev.yml`: add `APP_S3_ACCESS_KEY/SECRET_KEY/PUBLIC_ENDPOINT` to course-service; update `minio-init` to configure bucket CORS for browser direct-upload. | DEVOPS | S | 9.1 | MinIO PUT from browser succeeds without CORS error |
+| 9.6 | Frontend: add 7 content API methods to `courseService.js`. | FE-A | S | 9.4 | Methods callable from browser console without errors |
+| 9.7 | Frontend: build `LessonContentUpload` component (file picker for VIDEO/DOCUMENT, Markdown textarea for ARTICLE, progress bar, two-step upload flow). | FE-A | M | 9.6 | Instructor uploads a PDF and sees "Uploaded successfully" |
+| 9.8 | Frontend: build `LessonContentViewer` component (HTML5 video, PDF iframe + download, react-markdown renderer, legacy fallback). | FE-B | M | 9.6 | Learner sees video playing / PDF rendered / Markdown text |
+| 9.9 | Wire `LessonContentUpload` into `CourseBuilder.jsx` (replace Content URL input). Wire `LessonContentViewer` into `CoursePlayer.jsx`. | FE-A/B | S | 9.7, 9.8 | End-to-end: upload video in builder → learner sees player in player view |
+
+**Phase 9 DoD:**
+- Instructor uploads a video, a PDF document, and a Markdown article through the Course Builder.
+- Enrolled learner sees the correct viewer for each type in the Course Player.
+- Legacy lessons with `content_url` (and no `content_key`) still render via the fallback URL.
+- An instructor can upload a supplementary attachment; an enrolled learner can download it.
+
+---
+
+## Phase 10 — App Monitoring (Prometheus + Grafana)
+
+> **Service context:** Adds a metrics pipeline across all four services. No new business logic — purely observability infrastructure.
+
+**Goal:** All services expose Prometheus metrics. Prometheus scrapes them every 15 s. Grafana auto-provisions a **LearnPulse Overview** dashboard showing JVM health, HTTP request rates, and AI service latency on every `docker compose up`.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 10.1 | Add `micrometer-registry-prometheus` dependency to `pom.xml` in all three Spring Boot services (user-service, course-service, cert-service). | DEVOPS | S | 0.3, 0.12, 0.13 | Dependency resolves in Maven build |
+| 10.2 | Expose `prometheus` actuator endpoint in each Spring Boot `application.yml`; add `management.metrics.tags.application` for per-service labelling in Prometheus. | BE-A | S | 10.1 | `GET /actuator/prometheus` on each service returns Prometheus text format |
+| 10.3 | Add `prometheus-fastapi-instrumentator>=6.0.0` to AI service `requirements.txt`; wire `Instrumentator().instrument(app).expose(app)` in `app/main.py`. | AI | S | 0.5 | `GET http://localhost:9000/metrics` returns Prometheus text format |
+| 10.4 | Create `infrastructure/monitoring/prometheus.yml` — global 15 s scrape interval; one job per service (`/actuator/prometheus` for Spring Boot services, `/metrics` for AI service) plus Prometheus self-scrape. | DEVOPS | S | 10.2, 10.3 | Prometheus UI at http://localhost:9090/targets shows all five targets `State = UP` |
+| 10.5 | Create Grafana provisioning tree under `infrastructure/monitoring/grafana/provisioning/`: datasource pointing at `http://prometheus:9090`; dashboard provider pointing at same directory; `learnpulse.json` dashboard with three rows — **JVM** (heap, GC, threads, CPU), **HTTP** (req/s, p99 latency, 5xx rate), **AI Service** (req/s, p99 latency). | DEVOPS | M | 10.4 | On fresh `docker compose up`, Grafana → Dashboards → **LearnPulse Overview** loads with live data and no manual steps |
+| 10.6 | Add `prometheus` (image `prom/prometheus:v2.53.0`, port 9090) and `grafana` (image `grafana/grafana:11.1.0`, port 3000) services to `docker-compose.dev.yml`; add `prometheus-data` and `grafana-data` named volumes. Default Grafana admin password: `admin`. | DEVOPS | S | 10.4, 10.5 | `docker compose up` brings both containers healthy; http://localhost:3000 reachable |
+
+**Phase 10 DoD:** Running `docker compose -f docker-compose.dev.yml up` brings Prometheus to http://localhost:9090 and Grafana to http://localhost:3000. All Spring Boot `/actuator/prometheus` endpoints and the AI service `/metrics` endpoint return scrape data. The provisioned **LearnPulse Overview** dashboard displays live metrics without any manual configuration.
 
 ---
 

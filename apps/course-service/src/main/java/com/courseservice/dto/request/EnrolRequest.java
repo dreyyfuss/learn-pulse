@@ -1,5 +1,10 @@
 package com.courseservice.dto.request;
 
-// Phase 3 — implemented in Phase 3
-public class EnrolRequest {
-}
+import jakarta.validation.constraints.NotNull;
+
+import java.util.UUID;
+
+public record EnrolRequest(
+        @NotNull UUID courseId,
+        String enrolmentCode
+) {}

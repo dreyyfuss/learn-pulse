@@ -1,16 +1,28 @@
-from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
+# Make all app.* loggers visible at INFO level in docker logs
+logging.getLogger("app").setLevel(logging.INFO)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Phase 4: start aiokafka consumer for course.published here
-    yield
-    # Phase 4: graceful consumer shutdown here
-
+from app.api.chat import router as chat_router
+from app.exceptions import EnrolmentError
+from app.lifespan import lifespan
+from app.middleware.logging import RequestIDMiddleware
 
 app = FastAPI(title="LearnPulse AI Service", version="0.1.0", lifespan=lifespan)
+
+Instrumentator().instrument(app).expose(app)
+
+app.add_middleware(RequestIDMiddleware)
+app.include_router(chat_router)
+
+
+@app.exception_handler(EnrolmentError)
+async def enrolment_error_handler(request: Request, exc: EnrolmentError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
 @app.get("/healthz")

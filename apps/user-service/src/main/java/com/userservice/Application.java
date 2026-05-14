@@ -1,13 +1,4 @@
 package com.userservice;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class Application {
-
-	public static void main(String[] args) {
-		SpringApplication.run(Application.class, args);
-	}
-
-}
+// Entry point is UserServiceApplication. This file is kept as a placeholder.
+public class Application {}

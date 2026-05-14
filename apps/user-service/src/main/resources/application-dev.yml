@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/learnpulse_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: learnpulse
+    password: learnpulse
+
+  jpa:
+    show-sql: true
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
+logging:
+  level:
+    com.userservice: DEBUG
+    org.springframework.security: DEBUG

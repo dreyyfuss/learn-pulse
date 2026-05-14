@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" width="240" height="56" role="img" aria-label="LearnPulse">
+  <defs>
+    
+  </defs>
+  
+  <rect class="lp-mark" x="2" y="8" width="40" height="40" rx="10"></rect>
+  <polyline class="lp-pulse" points="10,30 16,30 19,22 24,38 28,26 32,32 38,32" stroke="#FBF8F3"></polyline>
+  <text class="lp-word" x="52" y="36">LearnPulse</text>
+</svg>

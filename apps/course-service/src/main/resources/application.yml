@@ -19,6 +19,9 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: false   # allows editing migration files during active development
 
+  cache:
+    type: redis
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -41,25 +44,19 @@ spring:
         spring.json.trusted.packages: com.courseservice.events.dto
 
 app:
-  jwt:
-    secret: ${JWT_SECRET:learnpulse-default-jwt-secret-key-change-this-in-production-must-be-32plus-chars}
-    access-token-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:900000}      # 15 minutes
-    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000} # 7 days
-
-  admin:
-    email: ${ADMIN_EMAIL:admin@learnpulse.com}
-    password: ${ADMIN_PASSWORD:Admin@LearnPulse1}
-    full-name: ${ADMIN_NAME:Platform Admin}
-
   s3:
     bucket: ${S3_BUCKET:learnpulse}
     endpoint: ${S3_ENDPOINT:}  # leave empty for real AWS; set to MinIO URL for dev
     region: ${S3_REGION:us-east-1}
+    access-key: ${APP_S3_ACCESS_KEY:minioadmin}
+    secret-key: ${APP_S3_SECRET_KEY:minioadmin}
+    public-endpoint: ${APP_S3_PUBLIC_ENDPOINT:}  # browser-reachable host for presigned URLs
+  service-auth:
+    secret: ${SERVICE_AUTH_SECRET:change-me-in-dev}
 
-  mailgun:
-    api-key: ${MAILGUN_API_KEY:}
-    domain: ${MAILGUN_DOMAIN:}
-    from: ${MAILGUN_FROM:noreply@learnpulse.com}
+services:
+  user-service:
+    url: ${USER_SERVICE_URL:http://user-service:8081}
 
 server:
   port: 8080
@@ -68,10 +65,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 logging:
   level:

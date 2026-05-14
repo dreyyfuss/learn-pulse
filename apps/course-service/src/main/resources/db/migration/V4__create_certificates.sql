@@ -1,1 +1,0 @@
--- Phase 4-5: certificates, idempotency_log — to be implemented

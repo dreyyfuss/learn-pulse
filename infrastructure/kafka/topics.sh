@@ -3,34 +3,39 @@
 set -euo pipefail
 
 BOOTSTRAP="${KAFKA_BOOTSTRAP:-kafka:9092}"
-REPLICATION=1   # dev: single broker
+REPLICATION=1   # dev: single broker; prod: 3
+
+MS_30_DAYS=2592000000
+MS_90_DAYS=7776000000
 
 create() {
-  local topic=$1 partitions=$2
-  kafka-topics.sh \
+  local topic=$1 partitions=$2 retention_ms=$3
+  /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --create \
     --if-not-exists \
     --topic "$topic" \
     --partitions "$partitions" \
-    --replication-factor "$REPLICATION"
-  echo "  created: $topic (partitions=$partitions)"
+    --replication-factor "$REPLICATION" \
+    --config cleanup.policy=delete \
+    --config retention.ms="$retention_ms"
+  echo "  created: $topic (partitions=$partitions, retention=${retention_ms}ms)"
 }
 
 echo "Creating LearnPulse Kafka topics on $BOOTSTRAP ..."
 
-# Main topics (partition counts mirror prod intent; replication=1 for dev)
-create course.published        3
-create user.enrolled           6
-create module.unlocked         6
-create course.completed        6
-create certificate.generated   6
+# Main topics
+create course.published        3  $MS_30_DAYS
+create user.enrolled           6  $MS_30_DAYS
+create module.unlocked         6  $MS_30_DAYS
+create course.completed        6  $MS_90_DAYS
+create certificate.generated   6  $MS_90_DAYS
 
-# Dead-letter queues (1 partition each — DLQ traffic is low)
-create course.published.dlq       1
-create user.enrolled.dlq          1
-create module.unlocked.dlq        1
-create course.completed.dlq       1
-create certificate.generated.dlq  1
+# Dead-letter queues
+create course.published.dlq         1  $MS_30_DAYS
+create user.enrolled.dlq            1  $MS_30_DAYS
+create module.unlocked.dlq          1  $MS_30_DAYS
+create course.completed.dlq         1  $MS_90_DAYS
+create certificate.generated.dlq    1  $MS_90_DAYS
 
 echo "All topics ready."
