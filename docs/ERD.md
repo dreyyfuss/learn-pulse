@@ -11,7 +11,7 @@ LearnPulse uses three independent MySQL databases — one per backend service. C
 
 | Service | App path | Database name | Tables owned |
 |---|---|---|---|
-| **User Service** | `apps/user-service` | `learnpulse_users` | `users`, `user_roles` |
+| **User Service** | `apps/user-service` | `learnpulse_users` | `users`, `user_roles`, `idempotency_log` (email consumer) |
 | **Course Service** | `apps/course-service` | `course_service_db` | `courses`, `modules`, `lessons`, `lesson_attachments`, `enrolments`, `lesson_progress`, `module_unlocks`, `idempotency_log` (email consumer), `outbox_events` |
 | **Certificate Service** | `apps/cert-service` | `learnpulse_certs` | `certificates`, `idempotency_log` (certificate consumer) |
 
@@ -304,6 +304,7 @@ Each service manages its own Flyway migrations independently.
 |---|---|---|
 | V1 | `V1__create_users_and_roles.sql` | `users`, `user_roles` |
 | V2 | `V2__seed_admin.sql` | First admin account (reads from env vars at startup) |
+| V3 | `V3__create_idempotency_log.sql` | `idempotency_log` (used by EmailConsumer to deduplicate `user.enrolled`, `module.unlocked`, and `certificate.generated` events) |
 
 ### Course Service — `apps/course-service/src/main/resources/db/migration/`
 

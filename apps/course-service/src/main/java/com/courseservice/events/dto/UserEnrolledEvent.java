@@ -1,11 +1,13 @@
 package com.courseservice.events.dto;
 
+import java.util.UUID;
+
 public record UserEnrolledEvent(
         String eventId,
         String eventType,
         int version,
         String occurredAt,
-        String userId,
-        String courseId,
-        String enrolmentId
+        UUID userId,
+        UUID courseId,
+        UUID enrolmentId
 ) {}

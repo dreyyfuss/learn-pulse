@@ -20,6 +20,7 @@ import CourseManagement from '../features/admin/CourseManagement';
 import EnrolmentManagement from '../features/admin/EnrolmentManagement';
 import NotFound from '../features/NotFound';
 import LandingPage from '../features/LandingPage';
+import ProfilePage from '../features/profile/ProfilePage';
 
 const router = createBrowserRouter([
   { index: true, element: <LandingPage /> },
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
           { path: 'learn/play',             element: <CoursePlayer /> },
           { path: 'learn/courses/:id/play', element: <CoursePlayer /> },
           { path: 'learn/certificates',     element: <MyCertificates /> },
+          { path: 'profile',               element: <ProfilePage /> },
 
           // Instructor routes (INSTRUCTOR role required)
           {

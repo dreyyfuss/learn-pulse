@@ -28,9 +28,9 @@ public class EnrolmentEventProducer {
                 "user.enrolled",
                 1,
                 Instant.now().toString(),
-                enrolment.getUserId().toString(),
-                enrolment.getCourse().getId().toString(),
-                enrolment.getId().toString()
+                enrolment.getUserId(),
+                enrolment.getCourse().getId(),
+                enrolment.getId()
         );
 
         String payload;
