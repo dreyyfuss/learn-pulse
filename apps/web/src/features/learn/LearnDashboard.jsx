@@ -10,6 +10,7 @@ import enrolmentService from '../../services/enrolmentService';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
+import { categoryGradient } from '../../utils/categoryColor';
 
 export default function LearnDashboard() {
   const navigate = useNavigate();
@@ -105,13 +106,18 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {inProgress.map(e => (
               <div key={e.enrolmentId} className="course-card" onClick={() => navigate(`/learn/courses/${e.courseId}/play`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div className="card-eyebrow">{e.courseTitle}</div>
-                <h3>{e.courseTitle}</h3>
-                <div className="card-footer">
-                  <ProgressBar value={e.progressPercent ?? 0} />
-                  <div className="card-stats">
-                    <span>{e.progressPercent ?? 0}% complete</span>
+                <div className="thumb" style={{ background: categoryGradient(e.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                </div>
+                <div className="card-body">
+                  <div className="card-eyebrow">{e.category || 'Course'}</div>
+                  <h3>{e.courseTitle}</h3>
+                  <div className="card-footer">
+                    <ProgressBar value={e.progressPercent ?? 0} />
+                    <div className="card-stats">
+                      <span>{e.progressPercent ?? 0}% complete</span>
+                      <span style={{ color: 'var(--coral)', fontWeight: 600 }}>In progress</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -126,17 +132,21 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {notStarted.map(e => (
               <div key={e.enrolmentId} className="course-card" onClick={() => navigate(`/learn/courses/${e.courseId}`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div className="card-eyebrow">{e.courseTitle}</div>
-                <h3>{e.courseTitle}</h3>
-                <div className="card-footer">
-                  <button
-                    className="btn btn-pulse btn-sm"
-                    style={{ alignSelf: 'flex-start' }}
-                    onClick={(ev) => { ev.stopPropagation(); openStartModal(e); }}
-                  >
-                    Start Course <Icon name="play" size={13} />
-                  </button>
+                <div className="thumb" style={{ background: categoryGradient(e.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                </div>
+                <div className="card-body">
+                  <div className="card-eyebrow">{e.category || 'Course'}</div>
+                  <h3>{e.courseTitle}</h3>
+                  <div className="card-footer">
+                    <button
+                      className="btn btn-pulse btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={(ev) => { ev.stopPropagation(); openStartModal(e); }}
+                    >
+                      Start Course <Icon name="play" size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -150,17 +160,24 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {exploreCourses.map(c => (
               <div key={c.courseId ?? c.id} className="course-card" onClick={() => navigate(`/learn/courses/${c.courseId ?? c.id}`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="card-eyebrow">{c.category}</span>
-                  {c.visibility === 'PRIVATE' && <Tag variant="private">Private 🔒</Tag>}
+                <div className="thumb" style={{ background: categoryGradient(c.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                  {c.visibility === 'PRIVATE' && (
+                    <span className="thumb-badge"><Icon name="lock" size={10} color="#fff" style={{ marginRight: 3 }} />Private</span>
+                  )}
                 </div>
-                <h3>{c.title}</h3>
-                <div className="card-footer">
-                  <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}
-                    onClick={(ev) => { ev.stopPropagation(); navigate(`/learn/courses/${c.courseId ?? c.id}`); }}>
-                    {c.visibility === 'PRIVATE' ? 'Request access' : 'Enrol'}
-                  </button>
+                <div className="card-body">
+                  <div className="card-eyebrow">{c.category || 'General'}</div>
+                  <h3>{c.title}</h3>
+                  <div className="card-footer">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={(ev) => { ev.stopPropagation(); navigate(`/learn/courses/${c.courseId ?? c.id}`); }}
+                    >
+                      {c.visibility === 'PRIVATE' ? 'Request access' : 'View course'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

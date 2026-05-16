@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '../components/Icon';
 
 export default function LandingPage() {
+  const [navOpen, setNavOpen] = useState(false);
+
   useEffect(() => {
     const ro = new IntersectionObserver(
       entries => entries.forEach(e => {
@@ -44,6 +46,12 @@ export default function LandingPage() {
     return () => { ro.disconnect(); co.disconnect(); document.removeEventListener('click', onAnchorClick); };
   }, []);
 
+  // Lock body scroll when mobile nav is open
+  useEffect(() => {
+    document.body.style.overflow = navOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [navOpen]);
+
   return (
     <div className="lp">
 
@@ -62,8 +70,33 @@ export default function LandingPage() {
         <div className="lp-nav-end">
           <Link className="lp-nav-sign" to="/login">Sign in</Link>
           <Link className="lp-btn-coral" to="/register">Start learning</Link>
+          <button
+            className="lp-ham"
+            onClick={() => setNavOpen(o => !o)}
+            aria-label={navOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={navOpen}
+          >
+            {navOpen
+              ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/></svg>
+            }
+          </button>
         </div>
       </nav>
+
+      {/* MOBILE NAV MENU */}
+      {navOpen && (
+        <div className="lp-mob-menu" onClick={() => setNavOpen(false)}>
+          <a className="lp-mob-link" href="#how" onClick={() => setNavOpen(false)}>How it works</a>
+          <a className="lp-mob-link" href="#feats" onClick={() => setNavOpen(false)}>Why us</a>
+          <a className="lp-mob-link" href="#courses" onClick={() => setNavOpen(false)}>Courses</a>
+          <a className="lp-mob-link" href="#inst" onClick={() => setNavOpen(false)}>Instructors</a>
+          <div className="lp-mob-ctas">
+            <Link className="lp-btn-ghost-w" to="/login" style={{ justifyContent: 'center' }} onClick={() => setNavOpen(false)}>Sign in</Link>
+            <Link className="lp-btn-coral lp-btn-coral-lg" to="/register" style={{ justifyContent: 'center' }} onClick={() => setNavOpen(false)}>Start learning →</Link>
+          </div>
+        </div>
+      )}
 
       {/* HERO */}
       <section className="lp-hero">
