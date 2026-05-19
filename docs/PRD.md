@@ -322,7 +322,7 @@ LearnPulse uses Apache Kafka as its single async backbone. The table below summa
 | `user.enrolled` | Spring Boot | Spring Boot (Email Consumer) | Learner enrols in a course |
 | `module.unlocked` | Spring Boot | Spring Boot (Email Consumer) | System unlocks a new module for a learner |
 | `course.completed` | Spring Boot | Certificate Service (Spring Boot — separate app) | Learner completes all lessons |
-| `certificate.generated` | Certificate Service | Course Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
+| `certificate.generated` | Certificate Service | User Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
 
 ---
 

@@ -1,5 +1,7 @@
+import hashlib
 import json
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 
@@ -80,19 +82,37 @@ class ChatService:
             raise ForbiddenError()
 
         history = session["messages"][-settings.chat_history_window:]
+        course_id = session["courseId"]
+
+        normalised = re.sub(r"\s+", " ", message.strip().lower())
+        cache_key = "aicache:" + hashlib.sha256(f"{course_id}:{normalised}".encode()).hexdigest()
+        cached = await self._redis.get(cache_key)
+        if cached:
+            yield cached.decode()
+            session["messages"].append({"role": "user", "content": message})
+            session["messages"].append({"role": "assistant", "content": cached.decode()})
+            await self._redis.set(
+                f"chat:{session_id}",
+                json.dumps(session),
+                ex=settings.chat_session_ttl_seconds,
+            )
+            return
+
         full_reply: list[str] = []
 
         async for token in self._pipeline.stream(
             query=message,
-            course_id=session["courseId"],
+            course_id=course_id,
             course_title=session["courseTitle"],
             history=history,
         ):
             full_reply.append(token)
             yield token
 
+        assembled = "".join(full_reply)
+        await self._redis.set(cache_key, assembled, ex=3600)
         session["messages"].append({"role": "user", "content": message})
-        session["messages"].append({"role": "assistant", "content": "".join(full_reply)})
+        session["messages"].append({"role": "assistant", "content": assembled})
         await self._redis.set(
             f"chat:{session_id}",
             json.dumps(session),

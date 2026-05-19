@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     kafka_topic_course_published: str = "course.published"
 
     cerebras_api_key: str = ""
-    cerebras_model: str = "llama-3.1-8b"
+    cerebras_model: str = "llama-3.3-70b"
 
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     chunk_size: int = 400

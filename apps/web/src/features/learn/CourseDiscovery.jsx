@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import Pagination from '../../components/Pagination';
 import courseService from '../../services/courseService';
+import enrolmentService from '../../services/enrolmentService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
 
@@ -21,6 +22,8 @@ export default function CourseDiscovery() {
   const [totalPages, setTotalPages] = useState(1);
   const [requestModal, setRequestModal] = useState(null);
   const [enrollCode, setEnrollCode] = useState('');
+  const [codeError, setCodeError]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [toast, setToast]           = useState('');
 
   useEffect(() => {
@@ -53,11 +56,20 @@ export default function CourseDiscovery() {
     return () => clearTimeout(t);
   }, [search, filter, page]);
 
-  const handleRequest = () => {
-    setToast("Access requested. You'll hear back within 24 hours.");
-    setRequestModal(null);
-    setEnrollCode('');
-    setTimeout(() => setToast(''), 3500);
+  const handleRequest = async () => {
+    if (!enrollCode.trim()) { setCodeError('Please enter an enrolment code.'); return; }
+    setCodeError('');
+    setSubmitting(true);
+    try {
+      await enrolmentService.enrol(requestModal.id, enrollCode.trim());
+      setRequestModal(null);
+      setEnrollCode('');
+      navigate(`/learn/courses/${requestModal.id}`);
+    } catch (err) {
+      setCodeError(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -168,29 +180,32 @@ export default function CourseDiscovery() {
       {/* Private-course request modal */}
       {requestModal && (
         <Modal
-          title="Request access"
-          onClose={() => setRequestModal(null)}
+          title="Enter enrolment code"
+          onClose={() => { setRequestModal(null); setEnrollCode(''); setCodeError(''); }}
           actions={
             <>
-              <button className="btn btn-secondary" onClick={() => setRequestModal(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleRequest}>Send request</button>
+              <button className="btn btn-secondary" onClick={() => { setRequestModal(null); setEnrollCode(''); setCodeError(''); }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleRequest} disabled={submitting}>
+                {submitting ? 'Enrolling…' : 'Enrol'}
+              </button>
             </>
           }
         >
           <p>
-            Have an enrolment code? Enter it below to get immediate access to{' '}
+            Enter the enrolment code to get immediate access to{' '}
             <strong>{requestModal.title}</strong>.
-            Otherwise, send a request and the instructor will review it.
           </p>
           <div className="field">
-            <label>Enrolment code (optional)</label>
+            <label>Enrolment code</label>
             <input
               className="input"
               value={enrollCode}
-              onChange={e => setEnrollCode(e.target.value)}
+              onChange={e => { setEnrollCode(e.target.value); setCodeError(''); }}
               placeholder="e.g. LEARN-2026-XY"
               style={{ fontFamily: 'var(--font-mono)' }}
+              autoFocus
             />
+            {codeError && <p style={{ fontSize: 13, color: 'var(--danger)', marginTop: 6, marginBottom: 0 }}>{codeError}</p>}
           </div>
         </Modal>
       )}

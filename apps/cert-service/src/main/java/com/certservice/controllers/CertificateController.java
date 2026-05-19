@@ -8,12 +8,14 @@ import com.certservice.security.UserPrincipal;
 import com.certservice.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,13 +70,10 @@ public class CertificateController {
                     .body(ApiResponse.error("Access denied", "FORBIDDEN"));
         }
 
-        byte[] content = s3Service.download(cert.getS3Key());
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"certificate-" + uuid + ".pdf\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(content);
+        String presignedUrl = s3Service.presignedUrl(cert.getS3Key(), Duration.ofMinutes(5));
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, presignedUrl)
+                .build();
     }
 
     private UserPrincipal principal(Authentication auth) {

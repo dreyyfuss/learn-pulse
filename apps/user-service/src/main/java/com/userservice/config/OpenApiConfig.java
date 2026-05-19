@@ -6,18 +6,26 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
 
     private static final String BEARER_SCHEME = "bearerAuth";
 
+    @Value("${swagger.server-url:http://localhost}")
+    private String serverUrl;
+
     @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
+                .servers(List.of(new Server().url(serverUrl).description("API Gateway (Traefik)")))
                 .info(new Info()
                         .title("LearnPulse — User Service API")
                         .description("""
