@@ -14,7 +14,6 @@ const LEARNER_LINKS = [
 const INSTRUCTOR_LINKS = [
   { path: '/teach/dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
   { path: '/teach/courses',   icon: 'edit-3',           label: 'My courses' },
-  { path: '/teach/analytics', icon: 'bar-chart-3',      label: 'Analytics' },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -41,11 +40,7 @@ export default function Sidebar({ isOpen, onClose }) {
     <aside className={`sidebar${isOpen ? ' sidebar--open' : ''}`}>
       {/* Brand header */}
       <div className="sidebar-hd">
-        <img src="/assets/logo-mark.svg" alt="LP" width="20" height="20" className="sidebar-hd-logo" />
-        <div>
-          <div className="sidebar-hd-name">LearnPulse</div>
-          <div className="sidebar-hd-mode">{modeLabel}</div>
-        </div>
+        <div className="sidebar-hd-name">{modeLabel}</div>
         <button className="sidebar-hd-close" onClick={onClose} aria-label="Close menu">
           <Icon name="x" size={15} />
         </button>

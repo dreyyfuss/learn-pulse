@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from './Icon';
 import Avatar from './Avatar';
@@ -35,8 +35,6 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
 
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [notifOpen, setNotifOpen]   = useState(false);
-  const [mobileSearch, setMobileSearch] = useState(false);
-  const mobileSearchRef = useRef(null);
 
   const roles = user?.roles ?? [];
   const isAdmin = roles.includes('ADMIN');
@@ -49,10 +47,6 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, []);
-
-  useEffect(() => {
-    if (mobileSearch && mobileSearchRef.current) mobileSearchRef.current.focus();
-  }, [mobileSearch]);
 
   const initials = user
     ? (user.firstName
@@ -70,78 +64,47 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
     navigate(mode === 'teach' ? '/teach/dashboard' : '/learn/dashboard');
   }
 
-  function MobileSearchBar() {
-    if (!mobileSearch) return null;
-    return (
-      <div className="mobile-search-bar" onClick={e => e.stopPropagation()}>
-        <Icon name="search" size={15} color="var(--ink-3)" />
-        <input
-          ref={mobileSearchRef}
-          placeholder="Search courses…"
-          onKeyDown={e => {
-            if (e.key === 'Enter' && e.target.value.trim()) {
-              navigate(`/learn/browse?q=${encodeURIComponent(e.target.value.trim())}`);
-              setMobileSearch(false);
-            }
-            if (e.key === 'Escape') setMobileSearch(false);
-          }}
-        />
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', padding: 4 }}
-          onClick={() => setMobileSearch(false)}
-        >
-          <Icon name="x" size={15} />
-        </button>
-      </div>
-    );
-  }
-
   if (isAdmin) {
     return (
-      <>
-        <nav className="navbar">
-          <a className="brand" onClick={() => navigate('/admin')}>
-            <img src="/assets/logo-mark.svg" alt="LearnPulse" />
-            <span>LearnPulse</span>
-          </a>
-          <div style={{ width: 1, height: 22, background: 'var(--rule)', margin: '0 2px' }} />
-          <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: 'var(--coral-600)',
-            fontFamily: 'var(--font-mono)',
-          }}>Admin</span>
-          <div className="nav-links" style={{ marginLeft: 12 }}>
-            {[
-              { label: 'Overview',    path: '/admin',             icon: 'bar-chart-2' },
-              { label: 'Users',       path: '/admin/users',       icon: 'users' },
-              { label: 'Courses',     path: '/admin/courses',     icon: 'book-open' },
-              { label: 'Enrolments',  path: '/admin/enrolments',  icon: 'user-plus' },
-            ].map(({ label, path, icon }) => (
-              <button
-                key={path}
-                className={`nav-link${screen === path ? ' active' : ''}`}
-                onClick={() => navigate(path)}
-              >
-                <Icon name={icon} size={15} />{label}
-              </button>
-            ))}
+      <nav className="navbar">
+        <a className="brand" onClick={() => navigate('/admin')}>
+          <img src="/assets/logo-mark.svg" alt="LearnPulse" />
+          <span>LearnPulse</span>
+        </a>
+        <div style={{ width: 1, height: 22, background: 'var(--rule)', margin: '0 2px' }} />
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+          textTransform: 'uppercase', color: 'var(--coral-600)',
+          fontFamily: 'var(--font-mono)',
+        }}>Admin</span>
+        <div className="nav-links" style={{ marginLeft: 12 }}>
+          {[
+            { label: 'Overview',    path: '/admin',             icon: 'bar-chart-2' },
+            { label: 'Users',       path: '/admin/users',       icon: 'users' },
+            { label: 'Courses',     path: '/admin/courses',     icon: 'book-open' },
+            { label: 'Enrolments',  path: '/admin/enrolments',  icon: 'user-plus' },
+          ].map(({ label, path, icon }) => (
+            <button
+              key={path}
+              className={`nav-link${screen === path ? ' active' : ''}`}
+              onClick={() => navigate(path)}
+            >
+              <Icon name={icon} size={15} />{label}
+            </button>
+          ))}
+        </div>
+        <div className="nav-right">
+          <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <button className="avatar-btn" onClick={() => setAvatarOpen(o => !o)}>{initials}</button>
+            {avatarOpen && <AvatarMenu user={user} onLogout={handleLogout} onClose={() => setAvatarOpen(false)} />}
           </div>
-          <div className="nav-right">
-            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="avatar-btn" onClick={() => setAvatarOpen(o => !o)}>{initials}</button>
-              {avatarOpen && <AvatarMenu user={user} onLogout={handleLogout} onClose={() => setAvatarOpen(false)} />}
-            </div>
-          </div>
-        </nav>
-        <MobileSearchBar />
-      </>
+        </div>
+      </nav>
     );
   }
 
   return (
-    <>
     <nav className="navbar">
-      {/* Hamburger — visible on mobile only via CSS */}
       <button
         className="nav-ham"
         onClick={onMenuClick}
@@ -155,58 +118,18 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
         <span>LearnPulse</span>
       </a>
 
-      {activeMode === 'learn' && (
-        <div className="nav-search">
-          <Icon name="search" size={14} color="var(--ink-4)" />
-          <input placeholder="Search courses, lessons…" />
-        </div>
-      )}
-
-      {activeMode === 'learn' ? (
-        <div className="nav-links" style={{ marginLeft: 8 }}>
-          <button className={`nav-link${screen === '/learn/dashboard' ? ' active' : ''}`} onClick={() => navigate('/learn/dashboard')}>
-            <Icon name="layout-dashboard" size={15} /> My learning
+      {isDual && (
+        <div className="mode-switcher">
+          <button className={`mode-btn${activeMode === 'learn' ? ' active' : ''}`} onClick={() => switchMode('learn')}>
+            <Icon name="book-open" size={13} /> <span className="mode-btn-label">Learning</span>
           </button>
-          <button className={`nav-link${screen === '/learn/browse' ? ' active' : ''}`} onClick={() => navigate('/learn/browse')}>
-            <Icon name="compass" size={15} /> Discover
-          </button>
-          <button className={`nav-link${screen === '/learn/certificates' ? ' active' : ''}`} onClick={() => navigate('/learn/certificates')}>
-            <Icon name="award" size={15} /> Certificates
-          </button>
-        </div>
-      ) : (
-        <div className="nav-links" style={{ marginLeft: 8 }}>
-          <button className={`nav-link${screen === '/teach/dashboard' ? ' active' : ''}`} onClick={() => navigate('/teach/dashboard')}>
-            <Icon name="layout-dashboard" size={15} /> Dashboard
-          </button>
-          <button className={`nav-link${screen.startsWith('/teach/courses') ? ' active' : ''}`} onClick={() => navigate('/teach/courses')}>
-            <Icon name="edit-3" size={15} /> My courses
+          <button className={`mode-btn${activeMode === 'teach' ? ' active' : ''}`} onClick={() => switchMode('teach')}>
+            <Icon name="edit-3" size={13} /> <span className="mode-btn-label">Teaching</span>
           </button>
         </div>
       )}
 
       <div className="nav-right">
-        {activeMode === 'learn' && (
-          <button
-            className="iconbtn nav-search-mobile"
-            aria-label="Search"
-            onClick={e => { e.stopPropagation(); setMobileSearch(o => !o); }}
-          >
-            <Icon name="search" size={16} />
-          </button>
-        )}
-
-        {isDual && (
-          <div className="mode-switcher">
-            <button className={`mode-btn${activeMode === 'learn' ? ' active' : ''}`} onClick={() => switchMode('learn')}>
-              <Icon name="book-open" size={13} /> Learning
-            </button>
-            <button className={`mode-btn${activeMode === 'teach' ? ' active' : ''}`} onClick={() => switchMode('teach')}>
-              <Icon name="edit-3" size={13} /> Teaching
-            </button>
-          </div>
-        )}
-
         <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
           <button className="iconbtn" onClick={() => setNotifOpen(o => !o)}>
             <Icon name="bell" size={16} />
@@ -240,7 +163,5 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
         </div>
       </div>
     </nav>
-    <MobileSearchBar />
-    </>
   );
 }
