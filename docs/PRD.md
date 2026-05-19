@@ -322,7 +322,7 @@ LearnPulse uses Apache Kafka as its single async backbone. The table below summa
 | `user.enrolled` | Spring Boot | Spring Boot (Email Consumer) | Learner enrols in a course |
 | `module.unlocked` | Spring Boot | Spring Boot (Email Consumer) | System unlocks a new module for a learner |
 | `course.completed` | Spring Boot | Certificate Service (Spring Boot — separate app) | Learner completes all lessons |
-| `certificate.generated` | Certificate Service | Course Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
+| `certificate.generated` | Certificate Service | User Service (Email Consumer) | Certificate PDF successfully uploaded to S3 |
 
 ---
 
@@ -780,9 +780,9 @@ All API responses follow the envelope format:
 |---|---|
 | **Frontend** | React (web) |
 | **API Gateway** | Traefik v3 |
-| **Course Service** | Java 17 + Spring Boot 3 (`apps/course-service`) |
-| **User Service** | Java 17 + Spring Boot 3 (`apps/user-service`) |
-| **Certificate Service** | Java 17 + Spring Boot 3 (`apps/cert-service`) |
+| **Course Service** | Java 21+ + Spring Boot 3 (`apps/course-service`) |
+| **User Service** | Java 21+ + Spring Boot 3 (`apps/user-service`) |
+| **Certificate Service** | Java 21+ + Spring Boot 3 (`apps/cert-service`) |
 | **AI Microservice** | Python + FastAPI + LangChain (`apps/ai-service`) |
 | **Databases** | MySQL 8 — one database per service |
 | **Message Broker** | Apache Kafka |

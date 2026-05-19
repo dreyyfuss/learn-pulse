@@ -183,8 +183,8 @@ export default function CoursePlayer() {
           className="btn btn-primary"
           onClick={() => {
             certificateService.downloadUrl(certUuid)
-              .then(res => window.open(res.data ?? res, '_blank', 'noopener'))
-              .catch(() => alert('Download unavailable. Check My Certificates.'));
+              .then(url => window.open(url, '_blank', 'noopener'))
+              .catch(() => { setToast('Download unavailable. Check My Certificates.'); setTimeout(() => setToast(''), 3500); });
           }}
         >
           <Icon name="download" size={15} /> Download Certificate

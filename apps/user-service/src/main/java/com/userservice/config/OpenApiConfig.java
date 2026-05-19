@@ -1,0 +1,74 @@
+package com.userservice.config;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
+
+@Configuration
+public class OpenApiConfig {
+
+    private static final String BEARER_SCHEME = "bearerAuth";
+
+    @Value("${swagger.server-url:http://localhost}")
+    private String serverUrl;
+
+    @Bean
+    public OpenAPI openAPI() {
+        return new OpenAPI()
+                .servers(List.of(new Server().url(serverUrl).description("API Gateway (Traefik)")))
+                .info(new Info()
+                        .title("LearnPulse — User Service API")
+                        .description("""
+                                Handles authentication, user profile management, and admin user operations.
+
+                                **Auth flow:** `POST /api/auth/login` returns an `accessToken`. \
+                                Paste it into the Authorize dialog below (without the `Bearer ` prefix).
+                                """)
+                        .version("1.0")
+                        .contact(new Contact()
+                                .name("LearnPulse")
+                                .url("https://github.com/dreyyfuss/learn-pulse")))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME))
+                .components(new Components()
+                        .addSecuritySchemes(BEARER_SCHEME, new SecurityScheme()
+                                .name(BEARER_SCHEME)
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                                .description("JWT issued by POST /api/auth/login")));
+    }
+
+    @Bean
+    public GroupedOpenApi authApi() {
+        return GroupedOpenApi.builder()
+                .group("1 - Auth")
+                .pathsToMatch("/api/auth/**")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi usersApi() {
+        return GroupedOpenApi.builder()
+                .group("2 - Users")
+                .pathsToMatch("/api/users/**")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return GroupedOpenApi.builder()
+                .group("3 - Admin")
+                .pathsToMatch("/api/admin/**")
+                .build();
+    }
+}

@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import Icon from '../../components/Icon';
+import Notification from '../../components/Notification';
 import certificateService from '../../services/certificateService';
 
 export default function MyCertificates() {
-  const [certs, setCerts]     = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [certs, setCerts]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [toast, setToast]       = useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
   useEffect(() => {
     certificateService.listMine()
@@ -19,7 +23,7 @@ export default function MyCertificates() {
     try {
       await certificateService.downloadFile(certUuid);
     } catch {
-      alert('Download link unavailable. Please try again.');
+      showToast('Download link unavailable. Please try again.');
     }
   };
 
@@ -73,7 +77,7 @@ export default function MyCertificates() {
                       setCopiedId(cert.certificateUuid);
                       setTimeout(() => setCopiedId(null), 2000);
                     } catch {
-                      alert('Could not copy automatically — please select and copy the ID manually.');
+                      showToast('Could not copy — please select and copy the ID manually.');
                     }
                   }}
                 >
@@ -85,6 +89,8 @@ export default function MyCertificates() {
           ))}
         </div>
       )}
+
+      {toast && <Notification>{toast}</Notification>}
     </div>
   );
 }

@@ -76,6 +76,16 @@ management:
       percentiles-histogram:
         http.server.requests: true
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  paths-to-exclude: /internal/**
+
 logging:
   level:
     com.courseservice: INFO
