@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import Pagination from '../../components/Pagination';
@@ -133,42 +132,33 @@ export default function CourseDiscovery() {
               <div className="thumb">
                 <Icon name="book-open" size={32} className="thumb-icon" />
                 {c.visibility === 'PRIVATE' && (
-                  <span style={{
-                    position: 'absolute', top: 10, right: 10,
-                    background: 'rgba(0,0,0,.5)', color: '#fff',
-                    fontSize: 11, padding: '3px 8px', borderRadius: 999,
-                    display: 'flex', alignItems: 'center', gap: 4,
-                  }}>
+                  <span className="thumb-badge">
                     <Icon name="lock" size={11} color="#fff" /> Private
                   </span>
                 )}
               </div>
 
-              <div className="card-eyebrow">{c.category || 'General'}</div>
-              <h3>{c.title}</h3>
-              <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0, lineHeight: 1.5 }}>
-                {c.description}
-              </p>
-              <div className="card-meta">Published course</div>
+              <div className="card-body">
+                <div className="card-eyebrow">{c.category || 'General'}</div>
+                <h3>{c.title}</h3>
+                <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0, lineHeight: 1.5 }}>
+                  {c.description}
+                </p>
 
-              <div className="card-footer">
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Tag variant={c.visibility === 'PRIVATE' ? 'private' : 'public'}>
-                    {c.visibility === 'PRIVATE' ? 'Private' : 'Public'}
-                  </Tag>
+                <div className="card-footer">
+                  <button
+                    className={`btn btn-sm ${c.visibility === 'PRIVATE' ? 'btn-secondary' : 'btn-primary'}`}
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      c.visibility === 'PRIVATE'
+                        ? setRequestModal(c)
+                        : navigate(`/learn/courses/${c.id}`);
+                    }}
+                  >
+                    {c.visibility === 'PRIVATE' ? 'Request access' : 'View course'}
+                  </button>
                 </div>
-                <button
-                  className={`btn btn-sm ${c.visibility === 'PRIVATE' ? 'btn-secondary' : 'btn-primary'}`}
-                  style={{ alignSelf: 'flex-start', marginTop: 8 }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    c.visibility === 'PRIVATE'
-                      ? setRequestModal(c)
-                      : navigate(`/learn/courses/${c.id}`);
-                  }}
-                >
-                  {c.visibility === 'PRIVATE' ? 'Request access' : 'View course'}
-                </button>
               </div>
             </div>
           ))}

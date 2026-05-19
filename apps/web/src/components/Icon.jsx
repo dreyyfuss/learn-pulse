@@ -1,13 +1,14 @@
 import {
-  ArrowRight, ArrowLeft, Award, BarChart2, BarChart3, Bell, BookOpen,
+  AlertCircle, ArrowRight, ArrowLeft, Award, BarChart2, BarChart3, Bell, BookOpen,
   Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
-  ChevronsUpDown, Compass, Download, Edit3, FileText, GripVertical,
-  HelpCircle, LayoutDashboard, Lock, LogOut, Paperclip, Pause, Pencil,
+  ChevronsUpDown, CircleAlert, Compass, Download, Edit3, FileText, GripVertical,
+  HelpCircle, LayoutDashboard, Lock, LogOut, Menu, Paperclip, Pause, Pencil,
   Play, PlayCircle, Plus, Search, Send, Settings, Share2, Sparkles,
   Trash2, User, UserPlus, Users, X, BarChart,
 } from 'lucide-react';
 
 const MAP = {
+  'alert-circle': AlertCircle, 'circle-alert': CircleAlert,
   'arrow-right': ArrowRight, 'arrow-left': ArrowLeft, 'award': Award,
   'bar-chart-2': BarChart2, 'bar-chart-3': BarChart3, 'bar-chart': BarChart,
   'bell': Bell, 'book-open': BookOpen, 'check': Check, 'check-circle': CheckCircle,
@@ -16,7 +17,7 @@ const MAP = {
   'compass': Compass, 'download': Download, 'edit-3': Edit3, 'file-text': FileText,
   'grip-vertical': GripVertical, 'help-circle': HelpCircle,
   'layout-dashboard': LayoutDashboard, 'lock': Lock, 'log-out': LogOut,
-  'paperclip': Paperclip, 'pause': Pause, 'pencil': Pencil,
+  'menu': Menu, 'paperclip': Paperclip, 'pause': Pause, 'pencil': Pencil,
   'play': Play, 'play-circle': PlayCircle, 'plus': Plus,
   'search': Search, 'send': Send, 'settings': Settings, 'share-2': Share2,
   'sparkles': Sparkles, 'trash-2': Trash2, 'user': User,

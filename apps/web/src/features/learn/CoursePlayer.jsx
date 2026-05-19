@@ -22,6 +22,7 @@ export default function CoursePlayer() {
   const [currentLessonId, setCurrentLessonId] = useState(null);
   const [completedIds, setCompletedIds]       = useState(new Set());
   const [showAI, setShowAI]                   = useState(false);
+  const [showLessonPanel, setShowLessonPanel] = useState(false);
   const [toast, setToast]                     = useState('');
   const [celebration, setCelebration]         = useState(false);
   const [certUuid, setCertUuid]               = useState(null);
@@ -238,7 +239,11 @@ export default function CoursePlayer() {
         </div>
       </div>
 
-      <div className="lesson-sidebar">
+      {showLessonPanel && (
+        <div className="lesson-panel-backdrop active" onClick={() => setShowLessonPanel(false)} />
+      )}
+
+      <div className={`lesson-sidebar${showLessonPanel ? ' panel-open' : ''}`}>
         <div className="lesson-tree">
           <div className="lesson-tree-head">
             <div className="lt-eyebrow">Course progress</div>
@@ -264,7 +269,7 @@ export default function CoursePlayer() {
                 <div
                   key={l.lessonId}
                   className={`lesson-item${l.lessonId === currentLessonId ? ' active' : ''}`}
-                  onClick={() => setCurrentLessonId(l.lessonId)}
+                  onClick={() => { setCurrentLessonId(l.lessonId); setShowLessonPanel(false); }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className={`lesson-dot${completedIds.has(l.lessonId) ? ' done' : l.lessonId === currentLessonId ? ' current' : ''}`}>
@@ -317,6 +322,14 @@ export default function CoursePlayer() {
           </button>
         </div>
       </div>
+
+      <button
+        className="btn btn-primary lesson-panel-btn"
+        onClick={() => setShowLessonPanel(o => !o)}
+      >
+        <Icon name="layout-dashboard" size={14} />
+        Lessons ({allLessons.length ? `${totalDone}/${allLessons.length}` : '…'})
+      </button>
 
       <button className="ai-fab" style={{ right: showAI ? 440 : 24 }} onClick={() => setShowAI(!showAI)}>
         <Icon name="sparkles" size={15} /> Ask AI
