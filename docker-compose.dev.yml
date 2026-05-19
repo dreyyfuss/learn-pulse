@@ -378,6 +378,8 @@ services:
   ai-service:
     build:
       context: ./apps/ai-service
+    volumes:
+      - hf-cache:/root/.cache/huggingface
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CHROMA_HOST: chromadb
@@ -386,7 +388,7 @@ services:
       COURSE_SERVICE_URL: http://course-service:8080
       SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
       CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
-      CEREBRAS_MODEL: ${CEREBRAS_MODEL:-llama-3.1-8b}
+      CEREBRAS_MODEL: ${CEREBRAS_MODEL:-gpt-oss-120b}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
@@ -406,7 +408,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/healthz')"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -428,6 +430,7 @@ volumes:
   chroma-data:
   prometheus-data:
   grafana-data:
+  hf-cache:
 
 networks:
   learnpulse:
