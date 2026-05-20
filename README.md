@@ -88,16 +88,20 @@ git clone https://github.com/dreyyfuss/learn-pulse.git
 cd learn-pulse
 ```
 
-### 2. Configure the AI service key
+### 2. Configure the AI service keys
 
-The AI Study Assistant requires a free Cerebras API key. Sign up at [cloud.cerebras.ai](https://cloud.cerebras.ai) — no credit card required.
+The AI service needs two free API keys:
+
+- **Cerebras** — powers the AI Study Assistant (RAG chat). Sign up at [cloud.cerebras.ai](https://cloud.cerebras.ai) — no credit card required.
+- **Groq** — powers voice-to-text transcription via Whisper. Sign up at [console.groq.com](https://console.groq.com) — no credit card required.
 
 ```bash
 cp apps/ai-service/.env.example apps/ai-service/.env
 # Set CEREBRAS_API_KEY=<your-key> in apps/ai-service/.env
+# Set GROQ_API_KEY=<your-key> in apps/ai-service/.env
 ```
 
-> The rest of the platform starts fine without this key — only the AI chat tab will return an error.
+> The rest of the platform starts fine without these keys — the AI chat tab and voice transcription will return errors if the respective key is missing.
 
 ### 3. Start the full stack
 
