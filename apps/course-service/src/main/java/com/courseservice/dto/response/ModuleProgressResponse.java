@@ -9,5 +9,6 @@ public record ModuleProgressResponse(
         int orderIndex,
         boolean unlocked,
         boolean completed,
-        List<LessonProgressItemResponse> lessons
+        List<LessonProgressItemResponse> lessons,
+        List<QuizProgressItemResponse> quizzes
 ) {}

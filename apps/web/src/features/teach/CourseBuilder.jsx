@@ -5,6 +5,7 @@ import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import LessonContentUpload from '../../components/LessonContentUpload';
+import QuizEditor from '../../components/QuizEditor';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -23,25 +24,28 @@ function EditCourseBuilder({ courseId }) {
   // Editor state
   const [courseTitle, setCourseTitle] = useState('');
   const [activeLesson, setActiveLesson] = useState(null); // { lesson, moduleId }
+  const [activeQuiz, setActiveQuiz]     = useState(null); // { quiz, moduleId }
   const [lessonForm, setLessonForm] = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
 
   // Inline-add state
-  const [addingModule, setAddingModule] = useState(false);
-  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [addingModule, setAddingModule]               = useState(false);
+  const [newModuleTitle, setNewModuleTitle]            = useState('');
   const [addingLessonModuleId, setAddingLessonModuleId] = useState(null);
-  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonTitle, setNewLessonTitle]            = useState('');
+  const [addingQuizModuleId, setAddingQuizModuleId]   = useState(null);
+  const [newQuizTitle, setNewQuizTitle]               = useState('');
 
   // UI state
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]         = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [publishing, setPublishing] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast]           = useState('');
   const [enrolmentCode, setEnrolmentCode] = useState(null);
 
   // DnD refs
   const dragModuleIdx = useRef(null);
-  const dragLesson    = useRef({ moduleId: null, idx: null });
+  const dragItem      = useRef({ moduleId: null, idx: null });
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -105,7 +109,7 @@ function EditCourseBuilder({ courseId }) {
         title: newModuleTitle.trim(),
         orderIndex: modules.length,
       });
-      setModules(prev => [...prev, mod]);
+      setModules(prev => [...prev, { ...mod, quizzes: [] }]);
       setNewModuleTitle('');
       setAddingModule(false);
     } catch (err) {
@@ -119,6 +123,7 @@ function EditCourseBuilder({ courseId }) {
       await courseService.deleteModule(courseId, moduleId);
       setModules(prev => prev.filter(m => m.id !== moduleId));
       if (activeLesson?.moduleId === moduleId) setActiveLesson(null);
+      if (activeQuiz?.moduleId === moduleId) setActiveQuiz(null);
     } catch (err) {
       showToast(getErrorMessage(err));
     }
@@ -129,11 +134,12 @@ function EditCourseBuilder({ courseId }) {
     e?.preventDefault();
     if (!newLessonTitle.trim()) return;
     const mod = modules.find(m => m.id === moduleId);
+    const itemCount = (mod?.lessons?.length ?? 0) + (mod?.quizzes?.length ?? 0);
     try {
       const lesson = await courseService.createLesson(courseId, moduleId, {
         title: newLessonTitle.trim(),
         contentType: 'VIDEO',
-        orderIndex: mod ? mod.lessons.length : 0,
+        orderIndex: itemCount,
       });
       setModules(prev => prev.map(m =>
         m.id === moduleId ? { ...m, lessons: [...(m.lessons ?? []), lesson] } : m
@@ -185,6 +191,30 @@ function EditCourseBuilder({ courseId }) {
     }
   };
 
+  // ── Add quiz ──
+  const submitAddQuiz = async (e, moduleId) => {
+    e?.preventDefault();
+    if (!newQuizTitle.trim()) return;
+    const mod = modules.find(m => m.id === moduleId);
+    const itemCount = (mod?.lessons?.length ?? 0) + (mod?.quizzes?.length ?? 0);
+    try {
+      const quiz = await courseService.createQuiz(courseId, moduleId, {
+        title: newQuizTitle.trim(),
+        orderIndex: itemCount,
+      });
+      const quizData = quiz.data ?? quiz;
+      setModules(prev => prev.map(m =>
+        m.id === moduleId ? { ...m, quizzes: [...(m.quizzes ?? []), quizData] } : m
+      ));
+      setNewQuizTitle('');
+      setAddingQuizModuleId(null);
+      setActiveQuiz({ quiz: quizData, moduleId });
+      setActiveLesson(null);
+    } catch (err) {
+      showToast(getErrorMessage(err));
+    }
+  };
+
   // ── DnD — modules ──
   const onModuleDragStart = (idx) => { dragModuleIdx.current = idx; };
   const onModuleDragOver  = (e)   => e.preventDefault();
@@ -207,39 +237,53 @@ function EditCourseBuilder({ courseId }) {
     }
   };
 
-  // ── DnD — lessons ──
-  const onLessonDragStart = (moduleId, idx) => { dragLesson.current = { moduleId, idx }; };
-  const onLessonDragOver  = (e) => e.preventDefault();
-  const onLessonDrop = async (targetModuleId, targetIdx) => {
-    const { moduleId: fromModuleId, idx: fromIdx } = dragLesson.current;
-    if (fromModuleId !== targetModuleId || fromIdx === targetIdx) return;
+  // ── DnD — items (lessons + quizzes) ──
+  const onItemDragStart = (moduleId, idx) => { dragItem.current = { moduleId, idx }; };
+  const onItemDragOver  = (e) => e.preventDefault();
+  const onItemDrop = async (targetModuleId, targetIIdx) => {
+    const { moduleId: fromModuleId, idx: fromIIdx } = dragItem.current;
+    if (fromModuleId !== targetModuleId || fromIIdx === targetIIdx) return;
     const mIdx = modules.findIndex(m => m.id === targetModuleId);
-    const lessons = [...modules[mIdx].lessons];
-    const [moved] = lessons.splice(fromIdx, 1);
-    lessons.splice(targetIdx, 0, moved);
-    const ordered = lessons.map((l, i) => ({ ...l, orderIndex: i }));
-    setModules(prev => prev.map((m, i) => i === mIdx ? { ...m, lessons: ordered } : m));
-    dragLesson.current = { moduleId: null, idx: null };
+    const mod = modules[mIdx];
+    const merged = [
+      ...(mod.lessons ?? []).map(l => ({ ...l, _type: 'lesson' })),
+      ...(mod.quizzes ?? []).map(q => ({ ...q, _type: 'quiz' })),
+    ].sort((a, b) => a.orderIndex - b.orderIndex);
+    const [moved] = merged.splice(fromIIdx, 1);
+    merged.splice(targetIIdx, 0, moved);
+    const reordered = merged.map((item, i) => ({ ...item, orderIndex: i }));
+    const newLessons = reordered.filter(item => item._type === 'lesson');
+    const newQuizzes = reordered.filter(item => item._type === 'quiz');
+    setModules(prev => prev.map((m, i) => i === mIdx ? { ...m, lessons: newLessons, quizzes: newQuizzes } : m));
+    dragItem.current = { moduleId: null, idx: null };
     try {
-      await courseService.reorderLessons(
-        courseId,
-        targetModuleId,
-        ordered.map(l => ({ id: l.id, orderIndex: l.orderIndex }))
-      );
+      const promises = [];
+      if (newLessons.length > 0)
+        promises.push(courseService.reorderLessons(courseId, targetModuleId, newLessons.map(l => ({ id: l.id, orderIndex: l.orderIndex }))));
+      if (newQuizzes.length > 0)
+        promises.push(courseService.reorderQuizzes(courseId, targetModuleId, newQuizzes.map(q => ({ id: q.id, orderIndex: q.orderIndex }))));
+      await Promise.all(promises);
     } catch {
-      showToast('Failed to save lesson order.');
+      showToast('Failed to save order.');
     }
   };
 
   // ── Select lesson ──
   const selectLesson = (lesson, moduleId) => {
     setActiveLesson({ lesson, moduleId });
+    setActiveQuiz(null);
     setLessonForm({
       title:       lesson.title       ?? '',
       contentType: lesson.contentType ?? 'VIDEO',
       contentUrl:  lesson.contentUrl  ?? '',
       description: lesson.description ?? '',
     });
+  };
+
+  // ── Select quiz ──
+  const selectQuiz = (quiz, moduleId) => {
+    setActiveQuiz({ quiz, moduleId });
+    setActiveLesson(null);
   };
 
   // ── Mark lesson as having content after upload (optimistic update) ──
@@ -324,98 +368,144 @@ function EditCourseBuilder({ courseId }) {
         <div className="builder-tree">
           <h4>Modules &amp; lessons</h4>
 
-          {modules.map((m, mIdx) => (
-            <div
-              key={m.id}
-              draggable={!isLocked}
-              onDragStart={() => onModuleDragStart(mIdx)}
-              onDragOver={onModuleDragOver}
-              onDrop={() => onModuleDrop(mIdx)}
-            >
-              {/* Module row */}
-              <div
-                className="tree-module active"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                {!isLocked && (
-                  <span className="drag-handle" style={{ cursor: 'grab', flexShrink: 0 }}>
-                    <Icon name="grip-vertical" size={13} />
-                  </span>
-                )}
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.title}
-                </span>
-                {!isLocked && (
-                  <button
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
-                    onClick={() => deleteModule(m.id)}
-                    title="Delete module"
-                  >
-                    <Icon name="trash-2" size={13} />
-                  </button>
-                )}
-              </div>
+          {modules.map((m, mIdx) => {
+            // Merge lessons + quizzes sorted by orderIndex for display
+            const items = [
+              ...(m.lessons ?? []).map(l => ({ ...l, _type: 'lesson' })),
+              ...(m.quizzes ?? []).map(q => ({ ...q, _type: 'quiz' })),
+            ].sort((a, b) => a.orderIndex - b.orderIndex);
 
-              {/* Lesson rows */}
-              {(m.lessons ?? []).map((l, lIdx) => (
+            return (
+              <div
+                key={m.id}
+                draggable={!isLocked}
+                onDragStart={() => onModuleDragStart(mIdx)}
+                onDragOver={onModuleDragOver}
+                onDrop={() => onModuleDrop(mIdx)}
+              >
+                {/* Module row */}
                 <div
-                  key={l.id}
-                  className={`tree-lesson${activeLesson?.lesson?.id === l.id ? ' active' : ''}`}
-                  draggable={!isLocked}
-                  onDragStart={() => onLessonDragStart(m.id, lIdx)}
-                  onDragOver={onLessonDragOver}
-                  onDrop={() => onLessonDrop(m.id, lIdx)}
-                  onClick={() => selectLesson(l, m.id)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                  className="tree-module active"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
                   {!isLocked && (
-                    <span className="drag-handle" style={{ flexShrink: 0 }}>
+                    <span className="drag-handle" style={{ cursor: 'grab', flexShrink: 0 }}>
                       <Icon name="grip-vertical" size={13} />
                     </span>
                   )}
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
-                    {l.title}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {m.title}
                   </span>
                   {!isLocked && (
                     <button
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
-                      onClick={(e) => { e.stopPropagation(); deleteLesson(m.id, l.id); }}
-                      title="Delete lesson"
+                      onClick={() => deleteModule(m.id)}
+                      title="Delete module"
                     >
-                      <Icon name="trash-2" size={11} />
+                      <Icon name="trash-2" size={13} />
                     </button>
                   )}
                 </div>
-              ))}
 
-              {/* Add lesson */}
-              {!isLocked && addingLessonModuleId === m.id ? (
-                <form
-                  onSubmit={(e) => submitAddLesson(e, m.id)}
-                  style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
-                >
-                  <input
-                    className="input"
-                    style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
-                    value={newLessonTitle}
-                    onChange={e => setNewLessonTitle(e.target.value)}
-                    placeholder="Lesson title"
-                    autoFocus
-                    onBlur={() => { if (!newLessonTitle.trim()) setAddingLessonModuleId(null); }}
-                  />
-                  <button type="submit" className="btn btn-primary btn-xs">Add</button>
-                </form>
-              ) : !isLocked && (
-                <button
-                  className="btn btn-secondary btn-xs"
-                  style={{ marginLeft: 24, marginTop: 4, marginBottom: 4 }}
-                  onClick={() => { setAddingLessonModuleId(m.id); setNewLessonTitle(''); }}
-                >
-                  <Icon name="plus" size={12} /> Add lesson
-                </button>
-              )}
-            </div>
-          ))}
+                {/* Lesson + Quiz rows (merged, sorted by orderIndex) */}
+                {items.map((item, iIdx) => {
+                  const isLesson = item._type === 'lesson';
+                  const isActive = isLesson
+                    ? activeLesson?.lesson?.id === item.id
+                    : activeQuiz?.quiz?.id === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`tree-lesson${isActive ? ' active' : ''}`}
+                      draggable={!isLocked}
+                      onDragStart={(e) => { e.stopPropagation(); onItemDragStart(m.id, iIdx); }}
+                      onDragOver={onItemDragOver}
+                      onDrop={(e) => { e.stopPropagation(); onItemDrop(m.id, iIdx); }}
+                      onClick={() => isLesson ? selectLesson(item, m.id) : selectQuiz(item, m.id)}
+                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      {!isLocked && (
+                        <span className="drag-handle" style={{ flexShrink: 0 }}>
+                          <Icon name="grip-vertical" size={13} />
+                        </span>
+                      )}
+                      {!isLesson && (
+                        <span style={{ flexShrink: 0, color: 'var(--ink-4)', display: 'flex', alignItems: 'center' }}>
+                          <Icon name="help-circle" size={13} />
+                        </span>
+                      )}
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {item.title}
+                      </span>
+                      {!isLocked && (
+                        <button
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            isLesson ? deleteLesson(m.id, item.id) : handleDeleteQuiz(m.id, item.id);
+                          }}
+                          title={isLesson ? 'Delete lesson' : 'Delete quiz'}
+                        >
+                          <Icon name="trash-2" size={11} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add lesson inline form */}
+                {!isLocked && addingLessonModuleId === m.id ? (
+                  <form
+                    onSubmit={(e) => submitAddLesson(e, m.id)}
+                    style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
+                  >
+                    <input
+                      className="input"
+                      style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
+                      value={newLessonTitle}
+                      onChange={e => setNewLessonTitle(e.target.value)}
+                      placeholder="Lesson title"
+                      autoFocus
+                      onBlur={() => { if (!newLessonTitle.trim()) setAddingLessonModuleId(null); }}
+                    />
+                    <button type="submit" className="btn btn-primary btn-xs">Add</button>
+                  </form>
+                ) : !isLocked && addingQuizModuleId === m.id ? (
+                  <form
+                    onSubmit={(e) => submitAddQuiz(e, m.id)}
+                    style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
+                  >
+                    <input
+                      className="input"
+                      style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
+                      value={newQuizTitle}
+                      onChange={e => setNewQuizTitle(e.target.value)}
+                      placeholder="Quiz title"
+                      autoFocus
+                      onBlur={() => { if (!newQuizTitle.trim()) setAddingQuizModuleId(null); }}
+                    />
+                    <button type="submit" className="btn btn-primary btn-xs">Add</button>
+                  </form>
+                ) : !isLocked && (
+                  <div style={{ display: 'flex', gap: 4, marginLeft: 24, marginTop: 4, marginBottom: 4 }}>
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => { setAddingLessonModuleId(m.id); setAddingQuizModuleId(null); setNewLessonTitle(''); }}
+                    >
+                      <Icon name="plus" size={12} /> Lesson
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => { setAddingQuizModuleId(m.id); setAddingLessonModuleId(null); setNewQuizTitle(''); }}
+                    >
+                      <Icon name="help-circle" size={12} /> Quiz
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Add module */}
           {!isLocked && (addingModule ? (
@@ -442,7 +532,7 @@ function EditCourseBuilder({ courseId }) {
           ))}
         </div>
 
-        {/* Right — lesson editor */}
+        {/* Right — editor panel */}
         <div className="builder-editor">
           {isLocked && (
             <div className="locked-banner">
@@ -451,11 +541,34 @@ function EditCourseBuilder({ courseId }) {
             </div>
           )}
 
-          {!activeLesson ? (
+          {activeQuiz ? (
+            <QuizEditor
+              courseId={courseId}
+              moduleId={activeQuiz.moduleId}
+              quiz={activeQuiz.quiz}
+              isLocked={isLocked}
+              onUpdated={(updatedQuiz) => {
+                setModules(prev => prev.map(m =>
+                  m.id === activeQuiz.moduleId
+                    ? { ...m, quizzes: (m.quizzes ?? []).map(q => q.id === updatedQuiz.id ? updatedQuiz : q) }
+                    : m
+                ));
+                setActiveQuiz({ quiz: updatedQuiz, moduleId: activeQuiz.moduleId });
+              }}
+              onDeleted={() => {
+                setModules(prev => prev.map(m =>
+                  m.id === activeQuiz.moduleId
+                    ? { ...m, quizzes: (m.quizzes ?? []).filter(q => q.id !== activeQuiz.quiz.id) }
+                    : m
+                ));
+                setActiveQuiz(null);
+              }}
+            />
+          ) : !activeLesson ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--ink-3)', gap: 12 }}>
               <Icon name="mouse-pointer-click" size={36} color="var(--ink-4)" />
               <p style={{ margin: 0, fontSize: 14 }}>
-                {isLocked ? 'Select a lesson to preview it.' : 'Select a lesson to edit, or add a new one.'}
+                {isLocked ? 'Select a lesson or quiz to preview it.' : 'Select a lesson or quiz to edit, or add a new one.'}
               </p>
             </div>
           ) : (
@@ -576,6 +689,17 @@ function EditCourseBuilder({ courseId }) {
       {toast && <Notification>{toast}</Notification>}
     </div>
   );
+
+  function handleDeleteQuiz(moduleId, quizId) {
+    courseService.deleteQuiz(courseId, moduleId, quizId)
+      .then(() => {
+        setModules(prev => prev.map(m =>
+          m.id === moduleId ? { ...m, quizzes: (m.quizzes ?? []).filter(q => q.id !== quizId) } : m
+        ));
+        if (activeQuiz?.quiz?.id === quizId) setActiveQuiz(null);
+      })
+      .catch(err => showToast(getErrorMessage(err)));
+  }
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────

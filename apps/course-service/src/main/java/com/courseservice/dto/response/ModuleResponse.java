@@ -14,15 +14,19 @@ public record ModuleResponse(
         String description,
         int orderIndex,
         LocalDateTime createdAt,
-        List<LessonSummaryResponse> lessons
+        List<LessonSummaryResponse> lessons,
+        List<QuizSummaryResponse> quizzes
 ) {
     public static ModuleResponse from(Module m) {
         List<LessonSummaryResponse> lessons = m.getLessons().stream()
                 .map(LessonSummaryResponse::from)
                 .collect(Collectors.toList());
+        List<QuizSummaryResponse> quizzes = m.getQuizzes().stream()
+                .map(QuizSummaryResponse::from)
+                .collect(Collectors.toList());
         return new ModuleResponse(
                 m.getId(), m.getCourse().getId(), m.getTitle(), m.getDescription(),
-                m.getOrderIndex(), m.getCreatedAt(), lessons
+                m.getOrderIndex(), m.getCreatedAt(), lessons, quizzes
         );
     }
 }
