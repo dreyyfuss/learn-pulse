@@ -1,34 +1,31 @@
 package com.courseservice.models;
 
 import jakarta.persistence.*;
-import org.hibernate.annotations.BatchSize;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "modules")
+@Table(name = "quizzes")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Module {
+public class Quiz {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    @JoinColumn(name = "module_id", nullable = false)
+    private Module module;
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false, length = 255)
     private String title;
 
     @Column(columnDefinition = "TEXT")
@@ -37,18 +34,15 @@ public class Module {
     @Column(name = "order_index", nullable = false)
     private int orderIndex;
 
+    @Column(name = "passing_score", nullable = false)
+    private int passingScore = 70;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @BatchSize(size = 30)
-    @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("orderIndex ASC")
-    private Set<Lesson> lessons = new LinkedHashSet<>();
-
-    @BatchSize(size = 30)
-    @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @OrderBy("orderIndex ASC")
-    private List<Quiz> quizzes = new ArrayList<>();
+    private List<QuizQuestion> questions = new ArrayList<>();
 
     @PrePersist
     void prePersist() {

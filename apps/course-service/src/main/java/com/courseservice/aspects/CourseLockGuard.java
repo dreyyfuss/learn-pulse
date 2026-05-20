@@ -21,7 +21,11 @@ public class CourseLockGuard {
         "execution(* com.courseservice.services.CourseService.update(..)) || " +
         "execution(* com.courseservice.services.CourseService.publish(..)) || " +
         "execution(* com.courseservice.services.ModuleService.*(..)) || " +
-        "execution(* com.courseservice.services.LessonService.*(..))"
+        "execution(* com.courseservice.services.LessonService.*(..)) || " +
+        "execution(* com.courseservice.services.QuizService.create(..)) || " +
+        "execution(* com.courseservice.services.QuizService.update(..)) || " +
+        "execution(* com.courseservice.services.QuizService.delete(..)) || " +
+        "execution(* com.courseservice.services.QuizService.upsertQuestions(..))"
     )
     public Object guardLocked(ProceedingJoinPoint pjp) throws Throwable {
         UUID courseId = (UUID) pjp.getArgs()[0];

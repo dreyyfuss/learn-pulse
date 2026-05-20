@@ -3,16 +3,20 @@ package com.courseservice.services;
 import com.courseservice.dto.response.LessonProgressItemResponse;
 import com.courseservice.dto.response.ModuleProgressResponse;
 import com.courseservice.dto.response.ProgressResponse;
+import com.courseservice.dto.response.QuizProgressItemResponse;
 import com.courseservice.exception.NotOwnerException;
 import com.courseservice.exception.ResourceNotFoundException;
 import com.courseservice.models.Course;
 import com.courseservice.models.Enrolment;
 import com.courseservice.models.Lesson;
 import com.courseservice.models.Module;
+import com.courseservice.models.Quiz;
+import com.courseservice.models.QuizAttempt;
 import com.courseservice.repositories.CourseRepository;
 import com.courseservice.repositories.EnrolmentRepository;
 import com.courseservice.repositories.LessonProgressRepository;
 import com.courseservice.repositories.ModuleUnlockRepository;
+import com.courseservice.repositories.QuizAttemptRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,7 @@ public class ProgressService {
     private final CourseRepository courseRepository;
     private final ModuleUnlockRepository moduleUnlockRepository;
     private final LessonProgressRepository lessonProgressRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
 
     @Transactional(readOnly = true)
     public ProgressResponse getProgress(UUID enrolmentId, UUID callerId, boolean isAdmin) {
@@ -62,14 +67,22 @@ public class ProgressService {
                         .stream().map(lp -> lp.getLesson().getId())
                         .collect(Collectors.toSet());
 
-        int total = allLessonIds.size();
-        int progressPercent = total == 0 ? 0 : (int) Math.round(100.0 * completedLessonIds.size() / total);
+        long totalQuizzes = course.getModules().stream()
+                .mapToLong(m -> m.getQuizzes().size()).sum();
+        long passedQuizzes = course.getModules().stream()
+                .flatMap(m -> m.getQuizzes().stream())
+                .filter(q -> quizAttemptRepository.existsByQuizIdAndUserIdAndPassedTrue(q.getId(), enrolment.getUserId()))
+                .count();
+
+        long total = allLessonIds.size() + totalQuizzes;
+        long done  = completedLessonIds.size() + passedQuizzes;
+        int progressPercent = total == 0 ? 0 : (int) Math.round(100.0 * done / total);
 
         UUID currentLessonId = computeCurrentLessonId(course, unlockedModuleIds, completedLessonIds);
 
         List<ModuleProgressResponse> moduleResponses = course.getModules().stream()
                 .sorted(Comparator.comparingInt(Module::getOrderIndex))
-                .map(m -> buildModuleResponse(m, unlockedModuleIds, completedLessonIds))
+                .map(m -> buildModuleResponse(m, unlockedModuleIds, completedLessonIds, enrolment.getUserId()))
                 .collect(Collectors.toList());
 
         return new ProgressResponse(
@@ -99,7 +112,7 @@ public class ProgressService {
     }
 
     private ModuleProgressResponse buildModuleResponse(
-            Module module, Set<UUID> unlockedModuleIds, Set<UUID> completedLessonIds) {
+            Module module, Set<UUID> unlockedModuleIds, Set<UUID> completedLessonIds, UUID userId) {
         boolean unlocked = unlockedModuleIds.contains(module.getId());
         List<LessonProgressItemResponse> lessonResponses = module.getLessons().stream()
                 .sorted(Comparator.comparingInt(Lesson::getOrderIndex))
@@ -108,11 +121,27 @@ public class ProgressService {
                         completedLessonIds.contains(l.getId())))
                 .collect(Collectors.toList());
 
-        boolean completed = !lessonResponses.isEmpty()
-                && lessonResponses.stream().allMatch(LessonProgressItemResponse::completed);
+        List<QuizProgressItemResponse> quizResponses = module.getQuizzes().stream()
+                .sorted(Comparator.comparingInt(Quiz::getOrderIndex))
+                .map(q -> {
+                    boolean passed = quizAttemptRepository.existsByQuizIdAndUserIdAndPassedTrue(q.getId(), userId);
+                    Integer bestScore = quizAttemptRepository.findAllByQuizIdAndUserIdOrderByScoreDesc(q.getId(), userId)
+                            .stream().findFirst().map(QuizAttempt::getScore).orElse(null);
+                    return new QuizProgressItemResponse(
+                            q.getId(), q.getTitle(), q.getOrderIndex(), passed, bestScore);
+                })
+                .collect(Collectors.toList());
+
+        boolean lessonsAllDone = lessonResponses.isEmpty()
+                || lessonResponses.stream().allMatch(LessonProgressItemResponse::completed);
+        boolean quizzesAllPassed = quizResponses.isEmpty()
+                || quizResponses.stream().allMatch(QuizProgressItemResponse::passed);
+        boolean completed = !lessonResponses.isEmpty() || !quizResponses.isEmpty()
+                ? lessonsAllDone && quizzesAllPassed
+                : false;
 
         return new ModuleProgressResponse(
                 module.getId(), module.getTitle(), module.getOrderIndex(),
-                unlocked, completed, lessonResponses);
+                unlocked, completed, lessonResponses, quizResponses);
     }
 }
