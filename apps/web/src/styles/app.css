@@ -53,7 +53,7 @@ body { margin: 0; background: var(--paper); }
 .app-body {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: calc(100vh - var(--navbar-h));
+  height: calc(100vh - var(--navbar-h));
   overflow: hidden;
 }
 .app-body.no-sidebar { grid-template-columns: 1fr; }

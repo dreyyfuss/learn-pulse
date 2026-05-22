@@ -346,6 +346,37 @@ These don't fit a single phase — assign owners and pull throughout the project
 
 ---
 
+## Phase 13 — Learning Streaks (feature/learning-streaks)
+
+> **Service context:** All backend changes in `apps/course-service`. Frontend changes in `apps/web`. Streak state is stored per-user in a new `user_streaks` table and updated whenever a learner completes a lesson or submits a quiz attempt.
+
+**Goal:** Learners are motivated to learn every day by a streak counter that tracks consecutive days of activity. The streak is shown as a badge on the learner dashboard (with done/at-risk states) and as a persistent chip in the navbar.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 13.1 | Flyway `V12__add_user_streaks.sql`: `user_streaks` table (`id` BINARY(16) PK, `user_id` BINARY(16) UNIQUE, `current_streak INT`, `longest_streak INT`, `last_activity_date DATE`, `updated_at TIMESTAMP`). | BE-A | S | 3.1 | Table created with unique constraint on `user_id` |
+| 13.2 | `UserStreak` JPA entity (UUID PK via `@GeneratedValue(strategy=UUID)`, `BINARY(16)` userId). `UserStreakRepository` with `findByUserId(UUID userId)`. | BE-A | S | 13.1 | Repository save+load round-trip passes |
+| 13.3 | `StreakService.recordActivity(UUID userId)`: idempotent same-day check; increments on consecutive day; resets to 1 on gap > 1 day; updates `longestStreak`. `getStreak(UUID userId)` returns `StreakResponse(currentStreak, lastActivityDate)` or zeros if no record. All date comparisons use `LocalDate.now(ZoneOffset.UTC)`. | BE-A | M | 13.2 | Unit tests: new user, same-day idempotent, consecutive increment, longest streak update, missed-day reset, long-gap reset |
+| 13.4 | `StreakResponse` record DTO: `int currentStreak`, `LocalDate lastActivityDate`. | BE-A | S | 13.3 | Serialises to JSON correctly |
+| 13.5 | `GET /api/learner/streak` in `StreakController`, `@PreAuthorize("hasRole('LEARNER')")`, extracts `userId` from `UserPrincipal`. Returns `ApiResponse<StreakResponse>`. | BE-A | S | 13.3, 13.4 | Unauthenticated → 401; INSTRUCTOR role → 403; LEARNER with no activity → `{ currentStreak: 0, lastActivityDate: null }` |
+| 13.6 | Inject `StreakService` into `LessonProgressService`: call `streakService.recordActivity(userId)` after `lessonProgressRepository.save()` on the **new completion path only** (skip if lesson was already complete). | BE-A | S | 13.3, 3.5 | Completing a lesson once → streak increments; calling complete again same lesson → streak unchanged |
+| 13.7 | Inject `StreakService` into `QuizAttemptService`: call `streakService.recordActivity(userId)` after `quizAttemptRepository.save()` (every attempt, pass or fail). | BE-A | S | 13.3, 11.6 | Submitting a quiz attempt → streak updated; same-day second attempt → idempotent |
+| 13.8 | Tests: `StreakServiceTest` (8 unit tests via `MockitoExtension`). `StreakControllerTest` (learner 200, zero streak, unauthenticated, instructor 403) using H2 + `@SpringBootTest`. Update `LessonProgressServiceTest` and `QuizAttemptServiceTest` to mock `StreakService`. | BE-A | M | 13.5, 13.6, 13.7 | `./mvnw test` green |
+| 13.9 | Frontend `streakService.js`: `getMine()` → `GET /api/learner/streak` via `api.js`. | FE-A | S | 13.5 | Method callable from browser console without errors |
+| 13.10 | Frontend `streakStore.js` (Zustand): `streak`, `setStreak`. `getStreakState(streak)` helper returns `'done'` (activity today), `'at-risk'` (activity yesterday, not yet today), or `'none'` (no streak or gap > 1 day). Date comparisons use UTC ISO strings. | FE-A | S | 13.9 | `getStreakState` returns correct state for each scenario |
+| 13.11 | `LearnDashboard.jsx`: include `streakService.getMine()` in the startup `Promise.all`; store result in `useStreakStore`. Render a three-state streak badge below the lede — coral/checkmark when done, amber/"keep it going" when at-risk, hidden when none. | FE-A | M | 13.10 | Dashboard shows coral badge after lesson completion; amber badge the following day before activity |
+| 13.12 | `Navbar.jsx`: read streak from `useStreakStore`; show a compact flame-icon chip in `nav-right` (before the bell) in learner mode only. Same coral/amber colour states as the dashboard badge. Tooltip shows streak count + state. Hidden when streak is none. | FE-A | S | 13.10 | Streak chip appears in navbar after any learning activity; updates without page reload |
+
+**Phase 13 DoD:**
+- Completing a lesson or submitting a quiz attempt updates the learner's streak in the `user_streaks` table.
+- Same-day repeat actions are idempotent; a one-day gap increments the streak; a gap > 1 day resets it to 1.
+- `GET /api/learner/streak` returns current streak and last activity date; role-guarded.
+- Learner dashboard shows a done (coral) badge, an at-risk (amber) badge, or nothing depending on UTC date comparison.
+- Streak chip persists in the navbar across all learner pages, reading from shared Zustand store.
+- All backend tests green.
+
+---
+
 ## Risk Register
 
 | Risk | Likelihood | Mitigation |

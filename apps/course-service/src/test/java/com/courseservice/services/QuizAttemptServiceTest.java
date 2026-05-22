@@ -27,6 +27,7 @@ class QuizAttemptServiceTest {
     @Mock EnrolmentRepository enrolmentRepository;
     @Mock ModuleUnlockRepository moduleUnlockRepository;
     @Mock ModuleProgressChecker moduleProgressChecker;
+    @Mock StreakService streakService;
 
     @InjectMocks QuizAttemptService quizAttemptService;
 
@@ -52,6 +53,7 @@ class QuizAttemptServiceTest {
         assertThat(result.score()).isEqualTo(100);
         assertThat(result.passed()).isTrue();
         verify(quizAttemptRepository).save(any(QuizAttempt.class));
+        verify(streakService).recordActivity(USER_ID);
         verify(moduleProgressChecker).tryComplete(any(), any());
     }
 

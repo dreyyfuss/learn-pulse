@@ -28,6 +28,7 @@ public class QuizAttemptService {
     private final EnrolmentRepository enrolmentRepository;
     private final ModuleUnlockRepository moduleUnlockRepository;
     private final ModuleProgressChecker moduleProgressChecker;
+    private final StreakService streakService;
 
     @Caching(evict = {
             @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
@@ -79,6 +80,8 @@ public class QuizAttemptService {
         attempt.setScore(score);
         attempt.setPassed(passed);
         quizAttemptRepository.save(attempt);
+
+        streakService.recordActivity(userId);
 
         ModuleProgressChecker.ModuleProgressResult progressResult =
                 passed ? moduleProgressChecker.tryComplete(module, enrolment)

@@ -8,6 +8,8 @@ import Tag from '../../components/Tag';
 import useAuthStore from '../../store/authStore';
 import enrolmentService from '../../services/enrolmentService';
 import courseService from '../../services/courseService';
+import streakService from '../../services/streakService';
+import useStreakStore, { getStreakState } from '../../store/streakStore';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
 import { categoryGradient } from '../../utils/categoryColor';
@@ -25,10 +27,11 @@ export default function LearnDashboard() {
   const [pendingEnrolment, setPendingEnrolment] = useState(null);
   const [starting, setStarting]                 = useState(false);
   const [toast, setToast]                       = useState('');
+  const { streak, setStreak }                   = useStreakStore();
 
   useEffect(() => {
-    Promise.all([enrolmentService.listMine(), courseService.list({ size: 100 })])
-      .then(([enrolData, courseData]) => {
+    Promise.all([enrolmentService.listMine(), courseService.list({ size: 100 }), streakService.getMine()])
+      .then(([enrolData, courseData, streakData]) => {
         const items = enrolData.items ?? [];
         setEnrolments(items);
         const enrolledIds = new Set(items.map(e => e.courseId));
@@ -36,6 +39,7 @@ export default function LearnDashboard() {
           c => c.status === 'PUBLISHED' && !enrolledIds.has(c.courseId ?? c.id)
         );
         setExploreCourses(avail);
+        setStreak(streakData.data ?? streakData);
       })
       .catch(e => setError(getErrorMessage(e)))
       .finally(() => setLoading(false));
@@ -85,6 +89,24 @@ export default function LearnDashboard() {
         </div>
       )}
 
+      {(() => {
+        const state = getStreakState(streak);
+        if (state === 'none') return null;
+        const done = state === 'done';
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: done ? 'var(--coral-50)' : 'var(--warning-bg)',
+            border: `1px solid ${done ? 'var(--coral-200)' : 'rgba(176,122,28,.35)'}`,
+            borderRadius: 'var(--r-pill)', padding: '4px 12px', fontSize: 13, fontWeight: 600,
+            color: done ? 'var(--coral)' : 'var(--warning)', marginBottom: 16 }}>
+            <Icon name="flame" size={13} color={done ? 'var(--coral)' : 'var(--warning)'} />
+            {streak.currentStreak}-day streak
+            {done
+              ? <Icon name="check-circle" size={13} color="var(--coral)" />
+              : <span style={{ fontWeight: 400, fontSize: 12 }}> — keep it going today</span>}
+          </div>
+        );
+      })()}
       <div style={{ display: 'flex', gap: 10, marginBottom: 36 }}>
         {continueCourse ? (
           <button className="btn btn-primary" onClick={() => navigate(`/learn/courses/${continueCourse.courseId}/play`)}>
