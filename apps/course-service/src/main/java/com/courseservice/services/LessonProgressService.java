@@ -27,6 +27,7 @@ public class LessonProgressService {
     private final LessonProgressRepository lessonProgressRepository;
     private final ModuleUnlockRepository moduleUnlockRepository;
     private final ModuleProgressChecker moduleProgressChecker;
+    private final StreakService streakService;
 
     @Caching(evict = {
             @CacheEvict(cacheNames = "analytics:instructor", allEntries = true),
@@ -72,6 +73,8 @@ public class LessonProgressService {
         progress.setUserId(userId);
         progress.setLesson(lesson);
         lessonProgressRepository.save(progress);
+
+        streakService.recordActivity(userId);
 
         ModuleProgressChecker.ModuleProgressResult result = moduleProgressChecker.tryComplete(module, enrolment);
         return new LessonCompleteResponse(lessonId, progress.getCompletedAt(),

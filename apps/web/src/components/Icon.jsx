@@ -1,7 +1,7 @@
 import {
   AlertCircle, ArrowRight, ArrowLeft, Award, BarChart2, BarChart3, Bell, BookOpen,
   Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
-  ChevronsUpDown, CircleAlert, Compass, Download, Edit3, FileText, GripVertical,
+  ChevronsUpDown, CircleAlert, Compass, Download, Edit3, FileText, Flame, GripVertical,
   HelpCircle, LayoutDashboard, Lock, LogOut, Menu, Paperclip, Pause, Pencil,
   Play, PlayCircle, Plus, Search, Send, Settings, Share2, Sparkles,
   Trash2, User, UserPlus, Users, X, BarChart,
@@ -15,7 +15,7 @@ const MAP = {
   'chevron-down': ChevronDown, 'chevron-left': ChevronLeft, 'chevron-right': ChevronRight,
   'chevron-up': ChevronUp, 'chevrons-up-down': ChevronsUpDown,
   'compass': Compass, 'download': Download, 'edit-3': Edit3, 'file-text': FileText,
-  'grip-vertical': GripVertical, 'help-circle': HelpCircle,
+  'flame': Flame, 'grip-vertical': GripVertical, 'help-circle': HelpCircle,
   'layout-dashboard': LayoutDashboard, 'lock': Lock, 'log-out': LogOut,
   'menu': Menu, 'paperclip': Paperclip, 'pause': Pause, 'pencil': Pencil,
   'play': Play, 'play-circle': PlayCircle, 'plus': Plus,

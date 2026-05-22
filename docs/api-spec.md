@@ -1,5 +1,5 @@
 # LearnPulse — REST API Specification
-**Version:** 1.2
+**Version:** 1.3
 **Companion to:** `PRD.md`
 **Base URL (dev):** `http://localhost` (all traffic enters via Traefik on port 80)
 **Auth:** `Authorization: Bearer <JWT>` on every endpoint marked Auth ≠ `Public`.
@@ -398,6 +398,31 @@ List endpoints accept `?page=0&size=20&sort=field,asc|desc`. Responses include:
 ### GET `/api/enrolments/{id}/progress`
 **Auth:** `LEARNER` (owner) or `INSTRUCTOR` (course owner) or `ADMIN`.
 **Response:** Module/lesson tree annotated with `completed`, `unlocked`, `currentLessonId`.
+
+---
+
+## 7a. Streaks
+
+### GET `/api/learner/streak`
+**Auth:** `LEARNER`
+**Routing:** Handled by Course Service (caught by `/api/*` rule).
+**Response 200:**
+```json
+{
+  "status": "success",
+  "data": {
+    "currentStreak":    5,
+    "lastActivityDate": "2026-05-22"
+  }
+}
+```
+**Behaviour:** Returns the caller's current consecutive-day learning streak. A streak increments when a lesson is completed or a quiz attempt is submitted on a calendar day (UTC) that immediately follows the previous activity date. A gap of more than one day resets `currentStreak` to 1 on the next activity. `currentStreak` is `0` and `lastActivityDate` is `null` for learners with no recorded activity.
+
+**Update triggers (in-process, no Kafka):**
+- `POST /api/lessons/{lessonId}/complete` — increments on the new-completion path only (idempotent for already-completed lessons).
+- `POST /api/quizzes/{quizId}/attempts` — increments on every submission, pass or fail.
+
+**Errors:** `401` if unauthenticated; `403 FORBIDDEN_ROLE` if caller is not a `LEARNER`.
 
 ---
 

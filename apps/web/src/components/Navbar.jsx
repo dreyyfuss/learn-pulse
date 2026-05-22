@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from './Icon';
 import useAuthStore from '../store/authStore';
 import useRoleStore from '../store/roleStore';
+import useStreakStore, { getStreakState } from '../store/streakStore';
 
 const MOBILE_ADMIN_LINKS = [
   { label: 'Overview',   path: '/admin',            icon: 'bar-chart-2' },
@@ -44,6 +45,7 @@ function AvatarMenu({ user, onLogout, onClose, onNavigate }) {
 export default function Navbar({ onMenuClick, sidebarOpen }) {
   const { user, clearAuth } = useAuthStore();
   const { activeMode, setMode } = useRoleStore();
+  const { streak } = useStreakStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -161,6 +163,28 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
       )}
 
       <div className="nav-right">
+        {activeMode === 'learn' && (() => {
+          const state = getStreakState(streak);
+          if (state === 'none') return null;
+          const done = state === 'done';
+          return (
+            <div
+              title={done ? `${streak.currentStreak}-day streak — done for today` : `${streak.currentStreak}-day streak — keep it going today`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '5px 11px', borderRadius: 'var(--r-pill)',
+                background: done ? 'var(--coral-50)' : 'var(--warning-bg)',
+                border: `1px solid ${done ? 'var(--coral-200)' : 'rgba(176,122,28,.35)'}`,
+                fontSize: 13, fontWeight: 600,
+                color: done ? 'var(--coral)' : 'var(--warning)',
+                cursor: 'default', userSelect: 'none', flexShrink: 0,
+              }}
+            >
+              <Icon name="flame" size={14} color={done ? 'var(--coral)' : 'var(--warning)'} />
+              {streak.currentStreak}
+            </div>
+          );
+        })()}
         <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
           <button className="iconbtn" onClick={() => setNotifOpen(o => !o)}>
             <Icon name="bell" size={16} />

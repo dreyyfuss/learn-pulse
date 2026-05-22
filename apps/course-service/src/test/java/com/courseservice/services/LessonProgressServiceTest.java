@@ -32,6 +32,7 @@ class LessonProgressServiceTest {
     @Mock LessonProgressRepository lessonProgressRepository;
     @Mock ModuleUnlockRepository moduleUnlockRepository;
     @Mock ModuleProgressChecker moduleProgressChecker;
+    @Mock StreakService streakService;
 
     @InjectMocks LessonProgressService lessonProgressService;
 
@@ -66,6 +67,7 @@ class LessonProgressServiceTest {
         assertThat(response.nextModuleId()).isEqualTo(MODULE2_ID);
         assertThat(response.courseCompleted()).isFalse();
         verify(lessonProgressRepository, times(1)).save(any(LessonProgress.class));
+        verify(streakService).recordActivity(USER_ID);
     }
 
     @Test
@@ -155,6 +157,7 @@ class LessonProgressServiceTest {
 
         assertThat(response.lessonId()).isEqualTo(LESSON_ID);
         verify(lessonProgressRepository, never()).save(any());
+        verify(streakService, never()).recordActivity(any());
     }
 
     // --- helpers ---
