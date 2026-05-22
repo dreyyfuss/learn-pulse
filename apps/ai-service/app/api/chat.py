@@ -3,7 +3,6 @@ import json
 import logging
 from typing import Annotated
 
-import openai
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
@@ -12,6 +11,11 @@ from app.dependencies.services import get_chat_service
 from app.exceptions import ForbiddenError, SessionNotFoundError
 from app.schemas.chat import MessageRequest, SessionResponse
 from app.services.chat_service import ChatService
+
+try:
+    from groq import RateLimitError as _GroqRateLimit
+except ImportError:
+    _GroqRateLimit = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +65,13 @@ async def send_message(
             yield f"data: {json.dumps({'error': 'Session not found'})}\n\n"
         except ForbiddenError:
             yield f"data: {json.dumps({'error': 'Forbidden'})}\n\n"
-        except openai.RateLimitError:
-            logger.warning("Cerebras rate limit hit sessionId=%s", session_id)
-            yield f"data: {json.dumps({'error': 'The AI is busy right now — please try again in a moment.'})}\n\n"
-        except Exception:
-            logger.exception("Streaming error sessionId=%s", session_id)
-            yield f"data: {json.dumps({'error': 'Internal error'})}\n\n"
+        except Exception as e:
+            if _GroqRateLimit and isinstance(e, _GroqRateLimit):
+                logger.warning("Groq rate limit hit sessionId=%s", session_id)
+                yield f"data: {json.dumps({'error': 'The AI is busy right now — please try again in a moment.'})}\n\n"
+            else:
+                logger.exception("Streaming error sessionId=%s", session_id)
+                yield f"data: {json.dumps({'error': 'Internal error'})}\n\n"
         finally:
             yield "data: [DONE]\n\n"
 

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from langchain_cerebras import ChatCerebras
+from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.config.settings import settings
@@ -14,17 +14,17 @@ logger = logging.getLogger(__name__)
 class RagPipeline:
     def __init__(self, embedder: Embedder) -> None:
         self._embedder = embedder
-        self._llm: ChatCerebras | None = None  # lazy — needs a valid API key
+        self._llm: ChatGroq | None = None
         client = get_chroma_client()
         self._collection = get_collection(client)
 
-    def _llm_instance(self) -> ChatCerebras:
+    def _llm_instance(self) -> ChatGroq:
         if self._llm is None:
-            if not settings.cerebras_api_key:
-                raise RuntimeError("CEREBRAS_API_KEY is not set")
-            self._llm = ChatCerebras(
-                api_key=settings.cerebras_api_key,
-                model=settings.cerebras_model,
+            if not settings.groq_api_key:
+                raise RuntimeError("GROQ_API_KEY is not set")
+            self._llm = ChatGroq(
+                model=settings.groq_llm_model,
+                api_key=settings.groq_api_key,
             )
         return self._llm
 

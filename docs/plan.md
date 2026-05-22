@@ -283,6 +283,69 @@ These don't fit a single phase — assign owners and pull throughout the project
 
 ---
 
+## Phase 11 — Quizzes (feature/quiz)
+
+> **Service context:** All backend changes in `apps/course-service`. Frontend changes in `apps/web`. Quizzes are first-class module items alongside lessons: they participate in module-completion gating and can be drag-reordered with lessons.
+
+**Goal:** Instructors can create quizzes, add multiple-choice / true-false questions, and set a passing score. Learners must pass all quizzes in a module (in addition to completing all lessons) before the next module unlocks. Instructors and learners can both reorder quizzes via drag-and-drop in the course builder.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 11.1 | Flyway `V10__create_quiz_tables.sql`: `quizzes`, `quiz_questions`, `quiz_options`, `quiz_attempts`. Foreign keys to `modules` and `enrolments`. | BE-A | S | 3.1 | Tables created on fresh DB startup |
+| 11.2 | JPA entities: `Quiz`, `QuizQuestion`, `QuizOption`, `QuizAttempt`. Cascade `PERSIST`/`MERGE`/`REMOVE` on question→option. Repositories: `QuizRepository`, `QuizAttemptRepository`. | BE-A | M | 11.1 | Repository save+load round-trip tests pass |
+| 11.3 | Refactor `ModuleProgressChecker`: replace inline lesson-only completion logic with a shared service that gates on both all lessons done **and** all quizzes passed (distinct best attempt ≥ passing score). Used by both `LessonProgressService` and `QuizAttemptService`. | BE-A | M | 11.2, 3.6 | Completing all lessons with an unpassed quiz does NOT unlock next module; passing quiz with all lessons done DOES unlock it |
+| 11.4 | Quiz instructor CRUD endpoints (`api-spec.md`): `POST`, `GET`, `PATCH`, `DELETE` under `/api/courses/{courseId}/modules/{moduleId}/quizzes`. `PUT /{quizId}/questions` replaces all questions atomically. All guarded by `@PreAuthorize("hasRole('INSTRUCTOR')")` and `courseService.loadAndGuard()`. | BE-A | M | 11.2 | Postman: create quiz with questions; update title; delete |
+| 11.5 | Quiz player endpoint `GET /api/quizzes/{quizId}/player` (learner-facing): verifies active enrolment + module unlock; returns questions with options but **without** `isCorrect` flags. | BE-B | S | 11.2, 3.4 | Non-enrolled learner → 404; locked module → 404; enrolled + unlocked → options returned without correct flag |
+| 11.6 | Quiz attempt submission `POST /api/quizzes/{quizId}/attempts`: scores `answers` map against correct options, computes percentage score, evaluates pass/fail vs `passing_score`, saves `QuizAttempt`, runs `ModuleProgressChecker`, returns per-question feedback with `correctOptionId`. | BE-B | M | 11.3, 11.5 | Score 0–100 computed correctly; passing triggers module unlock side-effect |
+| 11.7 | Best attempt retrieval `GET /api/quizzes/{quizId}/attempts/best`: returns highest-scoring attempt for the caller, or `null` data if none. | BE-B | S | 11.6 | No attempt → 200 with null data; after attempts → returns highest score |
+| 11.8 | Quiz reorder endpoint `PUT /api/courses/{courseId}/modules/{moduleId}/quizzes/reorder`: shift-then-update pattern matching lesson reorder. `quizRepository.shiftOrderIndicesUp()` + `updateOrderIndex()` per item. | BE-A | S | 11.2 | Reorder two quizzes; DB reflects new orderIndex values |
+| 11.9 | Frontend `QuizEditor` component: edit quiz metadata (title, passing score) and questions (add / remove question, add / remove option, mark correct, set question type). Wired into `CourseBuilder.jsx` right panel when a quiz is selected. | FE-A | L | 11.4 | Instructor adds a TRUE_FALSE question with two options, saves, sees it reflected |
+| 11.10 | Add `reorderQuizzes` to `courseService.js`. Refactor `CourseBuilder.jsx` DnD: replace lesson-only `dragLesson` ref with unified `dragItem` ref indexed into the merged lessons+quizzes `items` array. Drop handler reassigns orderIndex 0…N across all items, splits back into lessons/quizzes, and fires both `reorderLessons` and `reorderQuizzes` in parallel. Quiz items gain a grip-vertical handle. `e.stopPropagation()` on item drag/drop prevents spurious module reorder. | FE-B | M | 11.8, 11.9 | Dragging a quiz above a lesson in the tree persists after page reload; module drag still works |
+| 11.11 | Tests: fix `LessonProgressServiceTest` (mock `ModuleProgressChecker` instead of removed `ModuleRepository`/`CourseEventProducer`). New: `ModuleProgressCheckerTest`, `QuizServiceTest`, `QuizAttemptServiceTest`, `QuizControllerTest`, `QuizAttemptControllerTest`. Controller tests use H2 + `@MockitoBean` services. | BE-A + BE-B | M | 11.3–11.8 | `./mvnw test` green; 136 tests total |
+
+**Phase 11 DoD:**
+- Instructor creates a module with lessons and quizzes, sets a passing score, and reorders items via drag-and-drop.
+- Learner completes all lessons but fails the quiz → next module stays locked.
+- Learner passes the quiz → next module unlocks (or course completes if final module).
+- Per-question feedback (correct/incorrect, correct option revealed) returned on submission.
+- All 136 backend tests green.
+
+---
+
+## Phase 12 — AI Course Builder (feature/ai-course-builder)
+
+> **Service context:** New Kafka topics wire the Course Service to the AI Service. The AI Service adds a generation pipeline separate from the existing RAG chat pipeline. The Course Service gets a new `CourseGenerationJob` entity and two instructor endpoints. The frontend gets a modal-driven prompt-to-course flow.
+
+**Goal:** Instructors can enter a text prompt describing a course and have a complete DRAFT course — modules, Markdown lesson content, and per-lesson quizzes — generated automatically by an LLM. Generation runs asynchronously over Kafka; the frontend polls for completion and auto-navigates to the CourseBuilder.
+
+| # | Task | Owner | Est. | Depends on | Acceptance |
+|---|---|---|---|---|---|
+| 12.1 | `infrastructure/kafka/topics.sh`: add three topics + DLQs — `course.generation.requested`, `course.generation.completed`, `course.generation.failed` (3 partitions each). | DEVOPS | S | 0.6 | `kafka-topics --list` shows 6 new topics |
+| 12.2 | Flyway `V11__add_generation_job.sql`: `course_generation_jobs` table (UUID PK, `instructor_id`, `prompt TEXT`, `status ENUM('PENDING','COMPLETED','FAILED')`, `error_message TEXT`, `course_id`, timestamps); `ALTER TABLE lessons ADD COLUMN generated_content MEDIUMTEXT NULL`. | BE-A | S | 2.1 | Tables/column exist on fresh DB |
+| 12.3 | `CourseGenerationJob` JPA entity (UUID PK via `@GeneratedValue(strategy=UUID)`); `JobStatus` enum (PENDING / COMPLETED / FAILED); `CourseGenerationJobRepository`. | BE-A | S | 12.2 | Repository save+load round-trip passes |
+| 12.4 | Event record DTOs: `CourseGenerationRequestedEvent`, `CourseGenerationCompletedEvent` (nested `GeneratedModule` / `GeneratedLesson` / `GeneratedQuiz` / `GeneratedQuestion` / `GeneratedOption`), `CourseGenerationFailedEvent`. `CourseGenerationProducer` emits `course.generation.requested`. | BE-A | M | 12.3 | Publishing a job logs the emitted event |
+| 12.5 | `KafkaConsumerConfig`: dedicated `aiResultsListenerContainerFactory` (manual-ack, `AckMode.MANUAL_IMMEDIATE`) for the two result topics; separate from the existing outbox consumer factory. | BE-A | S | 0.6 | Bean wires without startup errors |
+| 12.6 | `CourseGenerationConsumer` in course-service: `@KafkaListener` on `course.generation.completed` + `course.generation.failed`; manual ack; dispatches to `CourseGenerationService`. | BE-A | S | 12.4, 12.5 | Consuming a fixture event calls the correct service method |
+| 12.7 | `CourseGenerationService`: `initiate(prompt, instructorId)` — creates PENDING job, fires `requested` event, returns `GenerationJobResponse`. `handleCompleted(event)` — builds full Course / Module / Lesson / Quiz graph, uploads Markdown content per lesson to S3 as `lessons/{id}/content.md`, sets `content_key`, marks job COMPLETED with `courseId`. `handleFailed(event)` — marks job FAILED with `errorMessage`. | BE-A | L | 12.3, 12.4 | End-to-end: fixture completed event → course row + S3 objects + job status = COMPLETED |
+| 12.8 | Two new `InstructorController` endpoints: `POST /api/instructor/courses/generate` (body: `{prompt}`) → 202 with `GenerationJobResponse`; `GET /api/instructor/courses/generate/{jobId}` → current `JobStatus` + `courseId` when done. | BE-A | S | 12.7 | Postman: POST returns jobId; GET returns PENDING then COMPLETED after pipeline runs |
+| 12.9 | AI service Pydantic schemas (`app/schemas/generation.py`): `CourseGenerationRequestedEvent`, `CourseOutline`, `ModuleOutline`, `LessonOutline`, `GeneratedQuiz`, `QuizQuestion`, `QuizOption`. | AI | S | — | Schemas importable; `model_validate` round-trip test passes |
+| 12.10 | `CourseGenerationPipeline` (`app/generation/pipeline.py`): Step 1 — synchronous LLM call (`ChatGroq`, `llama-3.3-70b`) to produce `CourseOutline` (3–5 modules × 3–5 lessons). Step 2 — parallel `llm.abatch()` for Markdown lesson content and quiz JSON for every lesson simultaneously. Assembles completed-event payload. | AI | L | 12.9 | Pipeline called with a fixture prompt returns a valid completed payload with content + quizzes |
+| 12.11 | `CourseGenerationConsumer` (aiokafka, `app/kafka/generation_consumer.py`): subscribes to `course.generation.requested`, runs `CourseGenerationPipeline`, emits completed or failed via `GenerationEventProducer`. Manual offset commit after successful publish. | AI | M | 12.10 | Sending a Kafka message triggers pipeline; completed event appears in topic |
+| 12.12 | `GenerationEventProducer` (`app/kafka/producer.py`): `publish_completed(payload)` → `course.generation.completed`; `publish_failed(jobId, instructorId, reason)` → `course.generation.failed`. | AI | S | 12.11 | Topics receive correct JSON payloads |
+| 12.13 | Frontend: `AiGenerateModal` component — prompt textarea (10–2000 char validation), animated status messages cycling every 20 s ("Designing course outline…", "Writing lesson content…", "Generating quizzes…"), polls `getGenerationJob` every 3 s up to 180 s timeout; on COMPLETED calls `onSuccess(courseId)`; on FAILED shows `errorMessage`. | FE-A | M | 12.8 | Submitting a prompt shows progress UI; COMPLETED auto-navigates to CourseBuilder; FAILED shows error inline |
+| 12.14 | `MyCourses.jsx`: "Generate with AI" button (sparkles icon) in page header opens `AiGenerateModal`; `onSuccess` shows toast + navigates to `/teach/courses/{courseId}/edit`. | FE-A | S | 12.13 | Button visible in My Courses header; success navigates to editor |
+| 12.15 | `courseService.js`: `generateCourse(body)` → `POST /api/instructor/courses/generate`; `getGenerationJob(jobId)` → `GET /api/instructor/courses/generate/{jobId}`. | FE-A | S | 12.8 | Both methods callable from browser console without errors |
+| 12.16 | `CourseBuilder.jsx`: lesson content panel reads `lesson.generatedContent` as the initial Markdown value; `LessonContentUpload` receives `hasContent` flag when either `contentKey` or `generatedContent` is set. | FE-A | S | 12.13 | Opening a generated course shows lesson content pre-filled in the editor |
+
+**Phase 12 DoD:**
+- Instructor clicks "Generate with AI", enters a description, and within ~3 minutes a complete DRAFT course (3–5 modules, 3–5 lessons each, per-lesson Markdown content + quiz) appears in the CourseBuilder.
+- Frontend shows animated progress messages and polls every 3 s; navigates automatically on completion.
+- Generated Markdown is uploaded to S3 and surfaced as an ARTICLE lesson with the existing `LessonContentViewer`.
+- FAILED jobs surface the error message inline in the modal.
+- All existing course-service and AI-service tests remain green.
+
+---
+
 ## Risk Register
 
 | Risk | Likelihood | Mitigation |

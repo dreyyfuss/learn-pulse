@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
+import Notification from '../../components/Notification';
+import AiGenerateModal from '../../components/AiGenerateModal';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonTableRows } from '../../components/Skeleton';
@@ -21,6 +23,12 @@ export default function MyCourses() {
   const [form, setForm]             = useState(EMPTY_FORM);
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError] = useState('');
+
+  // AI generation modal
+  const [showAiGenerate, setShowAiGenerate] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
   useEffect(() => {
     courseService.listOwn()
@@ -63,13 +71,14 @@ export default function MyCourses() {
           <div className="page-eyebrow">Teaching</div>
           <h1 className="page-title">My courses</h1>
         </div>
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 8, flexShrink: 0 }}
-          onClick={openCreate}
-        >
-          <Icon name="plus" size={15} /> New course
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexShrink: 0 }}>
+          <button className="btn btn-secondary" onClick={() => setShowAiGenerate(true)}>
+            <Icon name="sparkles" size={15} /> Generate with AI
+          </button>
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={15} /> New course
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -134,6 +143,18 @@ export default function MyCourses() {
         </div>
       )}
 
+      {/* AI generation modal */}
+      {showAiGenerate && (
+        <AiGenerateModal
+          onClose={() => setShowAiGenerate(false)}
+          onSuccess={(courseId) => {
+            setShowAiGenerate(false);
+            showToast('Course generated! Opening editor…');
+            navigate(`/teach/courses/${courseId}/edit`);
+          }}
+        />
+      )}
+
       {/* Create-course modal */}
       {showCreate && (
         <Modal
@@ -190,6 +211,7 @@ export default function MyCourses() {
           </form>
         </Modal>
       )}
+      {toast && <Notification onClose={() => setToast('')}>{toast}</Notification>}
     </div>
   );
 }

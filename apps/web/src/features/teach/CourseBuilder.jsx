@@ -23,6 +23,7 @@ function EditCourseBuilder({ courseId }) {
 
   // Editor state
   const [courseTitle, setCourseTitle] = useState('');
+  const [courseVisibility, setCourseVisibility] = useState('PUBLIC');
   const [activeLesson, setActiveLesson] = useState(null); // { lesson, moduleId }
   const [activeQuiz, setActiveQuiz]     = useState(null); // { quiz, moduleId }
   const [lessonForm, setLessonForm] = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
@@ -55,6 +56,7 @@ function EditCourseBuilder({ courseId }) {
       .then(data => {
         setCourse(data);
         setCourseTitle(data.title);
+        setCourseVisibility(data.visibility ?? 'PUBLIC');
         setModules(data.modules ?? []);
         if (data.visibility === 'PRIVATE') {
           courseService.getEnrolmentCode(courseId)
@@ -81,6 +83,18 @@ function EditCourseBuilder({ courseId }) {
       showToast(getErrorMessage(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Save visibility ──
+  const saveVisibility = async (value) => {
+    setCourseVisibility(value);
+    try {
+      const updated = await courseService.update(courseId, { visibility: value });
+      setCourse(prev => ({ ...prev, ...updated }));
+      showToast(value === 'PUBLIC' ? 'Course set to public.' : 'Course set to private.');
+    } catch (err) {
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -330,6 +344,17 @@ function EditCourseBuilder({ courseId }) {
             />
         }
         <Tag variant={statusVariant}>{statusLabel}</Tag>
+        {!isLocked && (
+          <select
+            className="input select"
+            style={{ fontSize: 13, padding: '4px 10px', height: 32, minWidth: 130 }}
+            value={courseVisibility}
+            onChange={e => saveVisibility(e.target.value)}
+          >
+            <option value="PUBLIC">Public</option>
+            <option value="PRIVATE">Private</option>
+          </select>
+        )}
         {enrolmentCode && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
             <Icon name="key" size={13} color="var(--ink-3)" />
@@ -606,11 +631,13 @@ function EditCourseBuilder({ courseId }) {
 
               {!isLocked && (
                 <LessonContentUpload
+                  key={activeLesson.lesson.id}
                   courseId={courseId}
                   moduleId={activeLesson.moduleId}
                   lessonId={activeLesson.lesson.id}
                   contentType={lessonForm.contentType}
-                  hasContent={!!activeLesson.lesson.contentKey}
+                  hasContent={!!activeLesson.lesson.contentKey || !!activeLesson.lesson.generatedContent}
+                  initialContent={activeLesson.lesson.generatedContent ?? ''}
                   onUploaded={markLessonHasContent}
                 />
               )}

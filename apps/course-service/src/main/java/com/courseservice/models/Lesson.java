@@ -42,6 +42,9 @@ public class Lesson {
     @Column(name = "content_key", length = 1024)
     private String contentKey;
 
+    @Column(name = "generated_content", columnDefinition = "MEDIUMTEXT")
+    private String generatedContent;
+
     @Column(name = "order_index", nullable = false)
     private int orderIndex;
 

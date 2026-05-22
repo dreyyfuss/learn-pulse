@@ -1,5 +1,5 @@
 # LearnPulse — REST API Specification
-**Version:** 1.1
+**Version:** 1.2
 **Companion to:** `PRD.md`
 **Base URL (dev):** `http://localhost` (all traffic enters via Traefik on port 80)
 **Auth:** `Authorization: Bearer <JWT>` on every endpoint marked Auth ≠ `Public`.
@@ -249,6 +249,72 @@ List endpoints accept `?page=0&size=20&sort=field,asc|desc`. Responses include:
 
 ### GET `/api/instructor/courses`
 **Auth:** `INSTRUCTOR`. Returns courses owned by the caller including `DRAFT`.
+
+---
+
+## 4a. AI Course Generation
+
+> These two endpoints implement the async generation flow. The instructor submits a prompt, receives a `jobId`, and polls until the job reaches a terminal state. Generation runs over a Kafka pipeline (§4.6–4.8 of `kafka-events.md`) and typically completes in 2–4 minutes.
+
+### POST `/api/instructor/courses/generate`
+**Auth:** `INSTRUCTOR`
+**Body:**
+```json
+{ "prompt": "Build a beginner course on REST APIs with practical exercises" }
+```
+- `prompt`: 10–2000 characters. Required.
+
+**Response 202:**
+```json
+{
+  "status": "success",
+  "data": {
+    "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+    "status":       "PENDING",
+    "errorMessage": null,
+    "courseId":     null
+  },
+  "message": "Course generation started"
+}
+```
+
+**Behaviour:**
+1. Validates `prompt` length (400 `VALIDATION_ERROR` if outside 10–2000 chars).
+2. Creates a `CourseGenerationJob` row with `status = PENDING`.
+3. Emits `course.generation.requested` via the transactional outbox.
+4. Returns immediately — generation is fully asynchronous.
+
+**Errors:** `400 VALIDATION_ERROR`.
+
+---
+
+### GET `/api/instructor/courses/generate/{jobId}`
+**Auth:** `INSTRUCTOR` (owner of the job)
+**Response 200:**
+```json
+{
+  "status": "success",
+  "data": {
+    "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+    "status":       "COMPLETED",
+    "errorMessage": null,
+    "courseId":     "550e8400-e29b-41d4-a716-446655440099"
+  },
+  "message": "OK"
+}
+```
+
+**`status` values:**
+
+| Value | Meaning |
+|---|---|
+| `PENDING` | Job created; AI pipeline has not yet finished |
+| `COMPLETED` | Course, modules, lessons, and quizzes persisted; `courseId` is set |
+| `FAILED` | Pipeline error; `errorMessage` describes the cause |
+
+**Polling contract:** The frontend polls every **3 seconds** with a **180-second** client-side timeout. On `COMPLETED`, navigate to `/teach/courses/{courseId}/edit`. On `FAILED`, display `errorMessage`. On timeout, show a soft message ("Check My Courses later — your course will appear when ready").
+
+**Errors:** `404` if `jobId` does not exist or belongs to a different instructor.
 
 ---
 

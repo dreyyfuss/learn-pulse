@@ -1,20 +1,27 @@
 package com.courseservice.controllers;
 
+import com.courseservice.dto.request.GenerateCourseRequest;
 import com.courseservice.dto.response.ApiResponse;
 import com.courseservice.dto.response.CourseAnalyticsResponse;
 import com.courseservice.dto.response.CourseSummaryResponse;
+import com.courseservice.dto.response.GenerationJobResponse;
 import com.courseservice.dto.response.PageResponse;
 import com.courseservice.security.UserPrincipal;
+import com.courseservice.services.CourseGenerationService;
 import com.courseservice.services.CourseService;
 import com.courseservice.services.InstructorAnalyticsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,6 +34,7 @@ public class InstructorController {
 
     private final CourseService courseService;
     private final InstructorAnalyticsService instructorAnalyticsService;
+    private final CourseGenerationService courseGenerationService;
 
     @GetMapping("/courses")
     @PreAuthorize("hasRole('INSTRUCTOR')")
@@ -46,5 +54,26 @@ public class InstructorController {
         UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success(
                 instructorAnalyticsService.getAnalytics(id, principal.getId()), "OK"));
+    }
+
+    @PostMapping("/courses/generate")
+    @PreAuthorize("hasRole('INSTRUCTOR')")
+    public ResponseEntity<ApiResponse<GenerationJobResponse>> generateCourse(
+            @Valid @RequestBody GenerateCourseRequest request,
+            Authentication auth) {
+        UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+        GenerationJobResponse response = courseGenerationService.initiate(request.prompt(), principal.getId());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(response, "Course generation started"));
+    }
+
+    @GetMapping("/courses/generate/{jobId}")
+    @PreAuthorize("hasRole('INSTRUCTOR')")
+    public ResponseEntity<ApiResponse<GenerationJobResponse>> getGenerationJob(
+            @PathVariable UUID jobId,
+            Authentication auth) {
+        UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success(
+                courseGenerationService.getJob(jobId, principal.getId()), "OK"));
     }
 }

@@ -12,6 +12,7 @@ body { margin: 0; background: var(--paper); }
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes slideInLeft  { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes shimmer { from { background-position: -200% center; } to { background-position: 200% center; } }
+@keyframes spin    { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes pulse-ring {
   0%   { box-shadow: 0 4px 20px rgba(42,45,124,.4), 0 0 0 0 rgba(42,45,124,.3); }
   70%  { box-shadow: 0 4px 20px rgba(42,45,124,.4), 0 0 0 10px rgba(42,45,124,0); }
