@@ -80,8 +80,8 @@ class TestRagPipelineLlmInstance:
     def test_raises_without_api_key(self, pipeline):
         pipeline._llm = None
         with patch("app.rag.pipeline.settings") as mock_settings:
-            mock_settings.cerebras_api_key = ""
-            with pytest.raises(RuntimeError, match="CEREBRAS_API_KEY"):
+            mock_settings.groq_api_key = ""
+            with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
                 pipeline._llm_instance()
 
     def test_returns_cached_llm_on_second_call(self, pipeline):

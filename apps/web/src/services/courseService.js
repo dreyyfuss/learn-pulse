@@ -10,6 +10,8 @@ const courseService = {
   },
 
   listOwn:          ()    => api.get('/api/instructor/courses').then(r => r.data),
+  generateCourse:   (body)   => api.post('/api/instructor/courses/generate', body).then(r => r.data),
+  getGenerationJob: (jobId)  => api.get(`/api/instructor/courses/generate/${jobId}`).then(r => r.data),
   analytics:       (id)  => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
   get:             (id)  => api.get(`/api/courses/${id}`).then(r => r.data),
   getEnrolmentCode:(id)  => api.get(`/api/courses/${id}/enrolment-code`).then(r => r.data),

@@ -10,8 +10,12 @@ class Settings(BaseSettings):
     kafka_group_id: str = "ai-service-indexer"
     kafka_topic_course_published: str = "course.published"
 
-    cerebras_api_key: str = ""
-    cerebras_model: str = "llama-3.3-70b"
+    kafka_topic_course_generation_requested: str = "course.generation.requested"
+    kafka_topic_course_generation_completed: str = "course.generation.completed"
+    kafka_topic_course_generation_failed: str = "course.generation.failed"
+    kafka_group_id_generation: str = "ai-service-course-builder"
+
+    groq_llm_model: str = "llama-3.3-70b-versatile"
 
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     chunk_size: int = 400

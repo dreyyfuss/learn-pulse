@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import courseService from '../services/courseService.js';
 
 const ACCEPT = {
@@ -8,12 +8,27 @@ const ACCEPT = {
   OTHER:    null,
 };
 
-export default function LessonContentUpload({ courseId, moduleId, lessonId, contentType, hasContent, onUploaded }) {
+export default function LessonContentUpload({ courseId, moduleId, lessonId, contentType, hasContent, initialContent = '', onUploaded }) {
   const [status,   setStatus]   = useState('idle');   // idle | uploading | done | error
   const [progress, setProgress] = useState(0);
   const [error,    setError]    = useState('');
   const [markdown, setMarkdown] = useState('');
+  const [fetching, setFetching] = useState(false);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    if (contentType !== 'ARTICLE') return;
+    if (!hasContent) {
+      setMarkdown(initialContent);
+      return;
+    }
+    setFetching(true);
+    courseService.getLessonContent(courseId, moduleId, lessonId)
+      .then(({ presignedUrl }) => fetch(presignedUrl).then(r => r.text()))
+      .then(text => setMarkdown(text))
+      .catch(() => setMarkdown(initialContent))
+      .finally(() => setFetching(false));
+  }, []);
 
   if (contentType === 'OTHER' || !contentType) return null;
 
@@ -66,20 +81,24 @@ export default function LessonContentUpload({ courseId, moduleId, lessonId, cont
 
       {contentType === 'ARTICLE' ? (
         <div>
-          <textarea
-            className="input textarea"
-            rows={10}
-            placeholder="Write your lesson content in Markdown…"
-            value={markdown}
-            onChange={e => setMarkdown(e.target.value)}
-            disabled={status === 'uploading'}
-            style={{ fontFamily: 'monospace', fontSize: 13 }}
-          />
+          {fetching ? (
+            <p style={{ fontSize: 13, color: 'var(--ink-3)' }}>Loading content…</p>
+          ) : (
+            <textarea
+              className="input textarea"
+              rows={10}
+              placeholder="Write your lesson content in Markdown…"
+              value={markdown}
+              onChange={e => setMarkdown(e.target.value)}
+              disabled={status === 'uploading'}
+              style={{ fontFamily: 'monospace', fontSize: 13 }}
+            />
+          )}
           <button
             className="btn btn-primary btn-sm"
             style={{ marginTop: 8 }}
             onClick={handleArticleUpload}
-            disabled={status === 'uploading' || !markdown.trim()}
+            disabled={fetching || status === 'uploading' || !markdown.trim()}
           >
             {status === 'uploading' ? `Uploading… ${progress}%` : 'Upload article'}
           </button>

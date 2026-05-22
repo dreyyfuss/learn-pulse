@@ -4,8 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -37,6 +40,17 @@ public class StorageService {
                 .getObjectRequest(r -> r.bucket(bucket).key(key))
                 .build();
         return s3Presigner.presignGetObject(req).url().toString();
+    }
+
+    public void putObject(String key, byte[] data, String mimeType) {
+        try {
+            s3Client.putObject(
+                    PutObjectRequest.builder().bucket(bucket).key(key).contentType(mimeType).build(),
+                    RequestBody.fromBytes(data));
+            log.info("Uploaded s3://{}/{} ({} bytes)", bucket, key, data.length);
+        } catch (S3Exception e) {
+            throw new RuntimeException("Failed to upload object: " + key, e);
+        }
     }
 
     public void delete(String key) {

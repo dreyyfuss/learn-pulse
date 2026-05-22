@@ -265,14 +265,10 @@ class TestSendMessage:
         assert "Forbidden" in resp.text
 
     async def test_rate_limit_error_yields_friendly_sse_message(self, authed_client, mock_service):
-        import openai
+        from groq import RateLimitError
 
         async def error_stream(session_id, user_id, message):
-            raise openai.RateLimitError(
-                "rate limited",
-                response=MagicMock(status_code=429, headers={}),
-                body={},
-            )
+            raise RateLimitError("rate limited", response=MagicMock(status_code=429, headers={}), body={})
             yield
 
         mock_service.stream_message = error_stream

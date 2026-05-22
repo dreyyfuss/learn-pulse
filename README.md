@@ -29,7 +29,7 @@ Browser
         ├─► User Service     :8081  — auth, users, admin
         ├─► Course Service   :8080  — courses, enrolments, progress, analytics
         ├─► Cert Service     :8082  — certificate generation & delivery
-        ├─► AI Service       :9000  — RAG chat (FastAPI + LangChain + Cerebras)
+        ├─► AI Service       :9000  — RAG chat (FastAPI + LangChain + Groq)
         └─► React SPA               — learner & instructor modes (/learn, /teach)
 
 Async backbone: Apache Kafka (KRaft)
@@ -63,7 +63,7 @@ For the full architecture diagram, Kafka event payloads, and API reference see t
 | Message Broker | Apache Kafka (KRaft, no Zookeeper) |
 | Object Storage | MinIO (dev) / AWS S3 (prod) |
 | Vector Store | ChromaDB |
-| LLM | Cerebras Inference — Llama 3.1 8B |
+| LLM | Groq — Llama 3.3 70B Versatile |
 | Email | Mailgun |
 | PDF Generation | Thymeleaf + Flying Saucer |
 | Monitoring | Prometheus + Grafana |
@@ -88,20 +88,18 @@ git clone https://github.com/dreyyfuss/learn-pulse.git
 cd learn-pulse
 ```
 
-### 2. Configure the AI service keys
+### 2. Configure the AI service key
 
-The AI service needs two free API keys:
+The AI service needs one free API key:
 
-- **Cerebras** — powers the AI Study Assistant (RAG chat). Sign up at [cloud.cerebras.ai](https://cloud.cerebras.ai) — no credit card required.
-- **Groq** — powers voice-to-text transcription via Whisper. Sign up at [console.groq.com](https://console.groq.com) — no credit card required.
+- **Groq** — powers the AI Study Assistant (RAG chat), course generation, and voice-to-text transcription via Whisper. Sign up at [console.groq.com](https://console.groq.com) — no credit card required.
 
 ```bash
 cp apps/ai-service/.env.example apps/ai-service/.env
-# Set CEREBRAS_API_KEY=<your-key> in apps/ai-service/.env
 # Set GROQ_API_KEY=<your-key> in apps/ai-service/.env
 ```
 
-> The rest of the platform starts fine without these keys — the AI chat tab and voice transcription will return errors if the respective key is missing.
+> The rest of the platform starts fine without this key — AI chat, course generation, and voice transcription will return errors if the key is missing.
 
 ### 3. Start the full stack
 
@@ -155,12 +153,12 @@ Navigate to [http://localhost](http://localhost). A seeded admin account is crea
 
 ## 🔑 Environment Variables
 
-All services default to safe dev values. The only variable you must set is `CEREBRAS_API_KEY` (see [Quick Start](#-quick-start)).
+All services default to safe dev values. The only variable you must set is `GROQ_API_KEY` (see [Quick Start](#-quick-start)).
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `CEREBRAS_API_KEY` | **Yes** | *(empty)* | AI chat responses — free tier at cloud.cerebras.ai |
-| `GROQ_API_KEY` | **Yes** | *(empty)* | Audio/video transcription via Groq Whisper — free tier at console.groq.com |
+| `GROQ_API_KEY` | **Yes** | *(empty)* | AI chat, course generation, and transcription — free tier at console.groq.com |
+| `GROQ_LLM_MODEL` | No | `llama-3.3-70b-versatile` | Groq model used for chat and course generation |
 | `MAILGUN_API_KEY` | No | *(empty)* | Emails are silently skipped if blank |
 | `MAILGUN_DOMAIN` | No | `sandbox.mailgun.org` | Mailgun sending domain |
 | `JWT_SECRET` | No | dev default | **Change this in production** |
