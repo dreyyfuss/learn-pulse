@@ -5,6 +5,10 @@ import com.userservice.exception.AppException;
 import com.userservice.service.BlacklistService;
 import com.userservice.service.JwtService;
 import io.jsonwebtoken.JwtException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,11 +30,17 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Auth Validation", description = "Internal token validation endpoint")
 public class ValidateController {
 
     private final JwtService jwtService;
     private final BlacklistService blacklistService;
 
+    @Operation(summary = "Validate JWT token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Token valid with user info"),
+        @ApiResponse(responseCode = "401", description = "Token invalid or expired")
+    })
     @GetMapping("/validate")
     public ResponseEntity<Void> validate(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
