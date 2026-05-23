@@ -17,6 +17,8 @@
 
 LearnPulse lets instructors publish structured courses (Course → Module → Lesson) and learners progress through them sequentially. On completion, the system generates a PDF certificate and emails it — exactly once, guaranteed via Kafka idempotency. An AI Study Assistant (RAG-backed) answers learner questions about course content in real time.
 
+Instructors can also describe a course topic in plain text and have the AI Course Builder generate a complete, ready-to-publish course — modules, lesson content (Markdown articles), and per-lesson quizzes — in one Kafka-driven async pipeline. Learners build daily learning streaks as they complete lessons, tracked server-side and visible from their dashboard.
+
 **Three roles:** Learner · Instructor · Admin — a single account can hold multiple roles simultaneously.
 
 ---
@@ -33,11 +35,14 @@ Browser
         └─► React SPA               — learner & instructor modes (/learn, /teach)
 
 Async backbone: Apache Kafka (KRaft)
-  course.published → AI Service (indexes lessons into ChromaDB)
-  user.enrolled    → Email notification
-  module.unlocked  → Email notification
-  course.completed → Cert Service (generates PDF → uploads to MinIO)
-  cert.generated   → Email delivery
+  course.published              → AI Service (indexes lessons into ChromaDB)
+  user.enrolled                 → Email notification
+  module.unlocked               → Email notification
+  course.completed              → Cert Service (generates PDF → uploads to MinIO)
+  cert.generated                → Email delivery
+  course.generation.requested   → AI Service (generates course structure + content + quizzes)
+  course.generation.completed   → Course Service (persists generated course)
+  course.generation.failed      → Course Service (marks job failed)
 
 Storage: MySQL (one schema per service) · MinIO/S3 · ChromaDB · Redis
 ```
@@ -175,6 +180,16 @@ Override any variable by setting it in your shell before running `docker compose
 3. Check **Kafka UI** — messages should appear on `user.enrolled`, `module.unlocked`, and `course.completed`.
 4. Check **MinIO** (`learnpulse` bucket → `certificates/`) — the PDF certificate should be there.
 
+**Try the AI Course Builder:**
+1. As an instructor → navigate to the Course Builder → describe your course topic in plain text.
+2. The system generates a complete course (modules + lesson articles + quizzes) asynchronously via Kafka.
+3. Poll `GET /api/instructor/courses/generate/{jobId}` until `status: COMPLETED`.
+4. The generated course appears in your instructor dashboard as a `DRAFT`, ready to review and publish.
+
+**Try learning streaks:**
+1. As a learner, mark any lesson complete.
+2. Call `GET /api/learner/streak` — `currentStreak` increments each day you complete at least one lesson.
+
 ---
 
 ## 📂 Project Structure
@@ -204,5 +219,5 @@ docker-compose.dev.yml
 | [`docs/PRD.md`](docs/PRD.md) | Full product requirements — features, roles, business rules |
 | [`docs/api-spec.md`](docs/api-spec.md) | Complete REST API reference |
 | [`docs/kafka-events.md`](docs/kafka-events.md) | Kafka topics, event payloads, consumer contracts |
-| [`docs/ERD.md`](docs/ERD.md) | Entity-relationship diagram |
+| [`docs/schema.md`](docs/schema.md) | Database schema — all tables, columns, constraints, and migration history |
 | [`docs/plan.md`](docs/plan.md) | Implementation plan and architectural decisions |

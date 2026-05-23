@@ -247,7 +247,7 @@ Certificates are stored in object storage. Learners can download them at any tim
 |---|---|
 | [`docs/api-spec.md`](api-spec.md) | Full REST API reference — endpoints, request/response shapes |
 | [`docs/kafka-events.md`](kafka-events.md) | Kafka topics, event payloads, consumer contracts |
-| [`docs/ERD.md`](ERD.md) | Entity-relationship diagram |
+| [`docs/schema.md`](schema.md) | Database schema — all tables, columns, constraints, and migration history |
 | [`docs/sequence-diagrams.md`](sequence-diagrams.md) | Sequence diagrams for key flows |
 | [`docs/plan.md`](plan.md) | Implementation plan and architectural decisions |
 | [`docs/security.md`](security.md) | Security review |
