@@ -17,7 +17,7 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(ObjectMapper baseMapper) {
-        // Copy Spring Boot's auto-configured ObjectMapper (has JavaTimeModule, etc.)
+        // Copy Spring Boot's autoconfigured ObjectMapper (has JavaTimeModule, etc.)
         // and add EVERYTHING default typing so records (which are final) get @class metadata.
         // Validator restricts deserialization to our app DTOs and JDK types only.
         ObjectMapper cacheMapper = baseMapper.copy()
