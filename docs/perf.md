@@ -1,5 +1,4 @@
-# LearnPulse — Performance Report
-**Companion to:** `plan.md §13`
+# LearnPulse — Performance Notes
 
 ---
 
@@ -67,30 +66,19 @@
 ## AI Service
 
 - Groq free tier: ~30 RPM for `llama-3.3-70b-versatile`
-- Redis reply cache reduces Groq calls for repeated or near-identical questions (same `courseId` + normalised message)
-- Cache hit rate in demo conditions (2–3 learners asking similar questions): estimated 40–60%
-- Streaming via Server-Sent Events (SSE) — first token appears in < 500 ms on cache miss
-- AI Course Builder generation runs fully async via Kafka — the `POST /api/instructor/courses/generate` endpoint returns a `jobId` immediately; the pipeline (structure → content → quizzes) runs in the AI service and publishes `course.generation.completed` when done
+- Redis reply cache reduces Groq calls for repeated or near-identical questions (same `courseId` + normalised message); cache key is `sha256(courseId + normalisedMessage)`, TTL 1 hour
+- Streaming via Server-Sent Events (SSE) -- first token appears in < 500 ms on cache miss
+- AI Course Builder generation runs fully async via Kafka -- the `POST /api/instructor/courses/generate` endpoint returns a `jobId` immediately; the pipeline (structure → content → quizzes) runs in the AI service and publishes `course.generation.completed` when done
 
 ---
 
 ## Frontend
 
-- Vite production build with code splitting per route (lazy imports not yet added — future optimisation)
-- React Query / SWR not used; all fetches are manual `useEffect` calls with loading states
+- Vite production build; all fetches are manual `useEffect` calls with loading states
 - Course list skeleton components prevent layout shift on load
 - Certificate download: presigned S3 URL redirect — browser downloads directly from S3, zero load on cert-service
 
 ---
-
-## Load Profile (Development / Demo)
-
-| Scenario | Expected concurrency | Bottleneck |
-|---|---|---|
-| Live capstone demo | 1–5 users | None at this scale |
-| AI chat (same question) | 2–3 users | Cache absorbs; < 1 Groq call/question |
-| Course discovery | 1–5 users | Redis course-list cache (5 min TTL) |
-| AI course generation | 1 instructor | Async pipeline — no blocking HTTP; Groq RPM limit if multiple jobs run concurrently |
 
 ---
 

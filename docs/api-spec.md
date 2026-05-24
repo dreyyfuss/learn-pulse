@@ -441,8 +441,6 @@ List endpoints accept `?page=0&size=20&sort=field,asc|desc`. Responses include:
 
 ## 9. Analytics
 
-> **Status: Planned — not yet implemented.**
-
 ### GET `/api/instructor/courses/{id}/analytics`
 **Auth:** `INSTRUCTOR` (owner).
 **Response:**
