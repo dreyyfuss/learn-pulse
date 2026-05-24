@@ -1,20 +1,37 @@
 import { useState, useRef, useEffect } from 'react';
 import courseService from '../services/courseService.js';
+import Icon from './Icon.jsx';
 
 const ACCEPT = {
   VIDEO:    'video/mp4,video/webm,video/ogg',
   DOCUMENT: 'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip',
   ARTICLE:  null,
-  OTHER:    null,
 };
 
+const ACCEPT_LABEL = {
+  VIDEO:    'a video file (MP4, WebM, OGG)',
+  DOCUMENT: 'a document (PDF, Word, ZIP)',
+};
+
+function isAllowedType(contentType, fileType) {
+  const allowed = ACCEPT[contentType];
+  if (!allowed) return true;
+  return allowed.split(',').includes(fileType);
+}
+
 export default function LessonContentUpload({ courseId, moduleId, lessonId, contentType, hasContent, initialContent = '', onUploaded }) {
-  const [status,   setStatus]   = useState('idle');   // idle | uploading | done | error
-  const [progress, setProgress] = useState(0);
-  const [error,    setError]    = useState('');
-  const [markdown, setMarkdown] = useState('');
-  const [fetching, setFetching] = useState(false);
+  const [status,       setStatus]       = useState('idle');   // idle | uploading | done | error
+  const [progress,     setProgress]     = useState(0);
+  const [error,        setError]        = useState('');
+  const [markdown,     setMarkdown]     = useState('');
+  const [fetching,     setFetching]     = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [objectUrl,    setObjectUrl]    = useState(null);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [objectUrl]);
 
   useEffect(() => {
     if (contentType !== 'ARTICLE') return;
@@ -30,7 +47,7 @@ export default function LessonContentUpload({ courseId, moduleId, lessonId, cont
       .finally(() => setFetching(false));
   }, []);
 
-  if (contentType === 'OTHER' || !contentType) return null;
+  if (!contentType) return null;
 
   const uploadFile = async (file, mimeType) => {
     setStatus('uploading');
@@ -64,6 +81,17 @@ export default function LessonContentUpload({ courseId, moduleId, lessonId, cont
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isAllowedType(contentType, file.type)) {
+      setError(`Wrong file type. Please upload ${ACCEPT_LABEL[contentType]}.`);
+      e.target.value = '';
+      return;
+    }
+    setError('');
+    setUploadedFile(file);
+    if (contentType === 'VIDEO') {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setObjectUrl(URL.createObjectURL(file));
+    }
     uploadFile(file, file.type);
   };
 
@@ -127,8 +155,23 @@ export default function LessonContentUpload({ courseId, moduleId, lessonId, cont
         </div>
       )}
 
-      {status === 'done'  && <p style={{ color: 'var(--success, green)',  fontSize: 13, marginTop: 6 }}>Uploaded successfully.</p>}
-      {status === 'error' && <p style={{ color: 'var(--danger)',          fontSize: 13, marginTop: 6 }}>{error}</p>}
+      {status === 'done' && uploadedFile && (
+        <div style={{ marginTop: 12 }}>
+          {contentType === 'VIDEO' && objectUrl && (
+            <video
+              controls
+              src={objectUrl}
+              style={{ width: '100%', borderRadius: 8, maxHeight: 240, background: '#000', display: 'block', marginBottom: 8 }}
+            />
+          )}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--success-bg, #f0fdf4)', border: '1px solid var(--success, #22c55e)', borderRadius: 8, padding: '6px 12px', fontSize: 13 }}>
+            <Icon name="check-circle" size={14} color="var(--success, #22c55e)" />
+            <span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>{uploadedFile.name}</span>
+            <span style={{ color: 'var(--ink-4)' }}>{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</span>
+          </div>
+        </div>
+      )}
+      {status === 'error' && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 6 }}>{error}</p>}
     </div>
   );
 }
