@@ -155,6 +155,7 @@ class TestCourseIndexerIndex:
             "moduleId": "m1",
             "moduleTitle": "Mod 1",
             "chunkIndex": 0,
+            "chunkType": "summary",
         }
 
     def test_upserts_documents_match_chunk_texts(self, indexer, mock_collection, mock_chunker):

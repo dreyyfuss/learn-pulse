@@ -141,7 +141,7 @@ class TestStreamMessage:
                 pass
 
     async def test_yields_tokens_from_pipeline(self, service, mock_redis, mock_pipeline):
-        mock_redis.get.return_value = make_session(user_id="user-1")
+        mock_redis.get.side_effect = [make_session(user_id="user-1"), None]
 
         async def fake_stream(query, course_id, course_title, history):
             yield "Hello"
@@ -153,7 +153,7 @@ class TestStreamMessage:
         assert tokens == ["Hello", " world"]
 
     async def test_appends_messages_to_history_in_redis(self, service, mock_redis, mock_pipeline):
-        mock_redis.get.return_value = make_session(user_id="user-1")
+        mock_redis.get.side_effect = [make_session(user_id="user-1"), None]
 
         async def fake_stream(query, course_id, course_title, history):
             yield "answer"
@@ -163,7 +163,7 @@ class TestStreamMessage:
         async for _ in service.stream_message("s1", "user-1", "my question"):
             pass
 
-        mock_redis.set.assert_awaited_once()
+        mock_redis.set.assert_awaited()
         stored = json.loads(mock_redis.set.call_args.args[1])
         messages = stored["messages"]
         assert messages[-2] == {"role": "user", "content": "my question"}
@@ -179,7 +179,7 @@ class TestStreamMessage:
                 for i in range(20)  # 20 messages, window is 10
             ],
         }
-        mock_redis.get.return_value = json.dumps(session)
+        mock_redis.get.side_effect = [json.dumps(session), None]
 
         captured_history: list = []
 
@@ -195,9 +195,10 @@ class TestStreamMessage:
         assert len(captured_history) == 10  # only last 10
 
     async def test_passes_correct_course_context_to_pipeline(self, service, mock_redis, mock_pipeline):
-        mock_redis.get.return_value = make_session(
-            user_id="user-1", course_id="course-xyz", title="Advanced Python"
-        )
+        mock_redis.get.side_effect = [
+            make_session(user_id="user-1", course_id="course-xyz", title="Advanced Python"),
+            None,
+        ]
         captured: dict = {}
 
         async def fake_stream(query, course_id, course_title, history):
@@ -214,7 +215,7 @@ class TestStreamMessage:
         assert captured["course_title"] == "Advanced Python"
 
     async def test_updates_redis_with_extended_ttl(self, service, mock_redis, mock_pipeline):
-        mock_redis.get.return_value = make_session(user_id="user-1")
+        mock_redis.get.side_effect = [make_session(user_id="user-1"), None]
 
         async def fake_stream(query, course_id, course_title, history):
             yield "token"
