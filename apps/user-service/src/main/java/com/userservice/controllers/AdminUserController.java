@@ -5,6 +5,9 @@ import com.userservice.dto.response.UserAdminView;
 import com.userservice.enums.Role;
 import com.userservice.enums.UserStatus;
 import com.userservice.service.AdminUserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,10 +22,16 @@ import java.util.UUID;
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Admin — Users", description = "Admin user management operations")
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
 
+    @Operation(summary = "List all users")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Paged user list"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin role required")
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<Page<UserAdminView>>> listUsers(
             @RequestParam(required = false) Role role,
@@ -34,16 +43,34 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.success(page, "Users retrieved."));
     }
 
+    @Operation(summary = "Promote user to admin")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User promoted"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin role required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PatchMapping("/{id}/promote")
     public ResponseEntity<ApiResponse<UserAdminView>> promote(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.promote(id), "User promoted to admin."));
     }
 
+    @Operation(summary = "Suspend user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User suspended"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin role required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PatchMapping("/{id}/suspend")
     public ResponseEntity<ApiResponse<UserAdminView>> suspend(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.suspend(id), "User suspended."));
     }
 
+    @Operation(summary = "Reinstate suspended user")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User reinstated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin role required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found")
+    })
     @PatchMapping("/{id}/reinstate")
     public ResponseEntity<ApiResponse<UserAdminView>> reinstate(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.reinstate(id), "User reinstated."));

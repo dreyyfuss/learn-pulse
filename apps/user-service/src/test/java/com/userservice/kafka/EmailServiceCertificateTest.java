@@ -13,8 +13,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +25,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class EmailServiceCertificateTest {
 
     @Mock IdempotencyLogRepository idempotencyLogRepository;
@@ -58,28 +60,26 @@ class EmailServiceCertificateTest {
     }
 
     @Test
-    void processCertificateGenerated_sendsEmailWithCertificateDeliveryTemplate() {
+    void processCertificateGenerated_sendsHtmlEmailWithCertificateSubject() {
         emailService.processCertificateGenerated(event, EVENT_ID, TOPIC);
 
-        ArgumentCaptor<String> templateCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mailgunClient).send(
+        ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mailgunClient).sendHtml(
                 eq(user.getEmail()),
                 eq(user.getFullName()),
-                templateCaptor.capture(),
-                anyMap()
+                subjectCaptor.capture(),
+                anyString()
         );
-        assertThat(templateCaptor.getValue()).isEqualTo("certificate_delivery");
+        assertThat(subjectCaptor.getValue()).containsIgnoringCase("certificate");
     }
 
     @Test
-    void processCertificateGenerated_includesCertificateIdInTemplateVars() {
+    void processCertificateGenerated_includesCertificateIdInHtmlBody() {
         emailService.processCertificateGenerated(event, EVENT_ID, TOPIC);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, Object>> varsCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(mailgunClient).send(anyString(), anyString(), anyString(), varsCaptor.capture());
-        assertThat(varsCaptor.getValue()).containsKey("certificateId");
-        assertThat(varsCaptor.getValue().get("certificateId")).isEqualTo("cert-uuid-1234");
+        ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mailgunClient).sendHtml(anyString(), anyString(), anyString(), htmlCaptor.capture());
+        assertThat(htmlCaptor.getValue()).contains(event.getCertificateId());
     }
 
     @Test
@@ -92,17 +92,12 @@ class EmailServiceCertificateTest {
     }
 
     @Test
-    void processCertificateGenerated_includesDownloadUrlInTemplateVars() {
+    void processCertificateGenerated_includesDownloadUrlInHtmlBody() {
         emailService.processCertificateGenerated(event, EVENT_ID, TOPIC);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, Object>> varsCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(mailgunClient).send(anyString(), anyString(), anyString(), varsCaptor.capture());
-        assertThat(varsCaptor.getValue())
-                .containsKey("downloadUrl")
-                .extractingByKey("downloadUrl")
-                .asString()
-                .isNotBlank();
+        ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mailgunClient).sendHtml(anyString(), anyString(), anyString(), htmlCaptor.capture());
+        assertThat(htmlCaptor.getValue()).contains(event.getDownloadUrl());
     }
 
     @Test
@@ -113,7 +108,7 @@ class EmailServiceCertificateTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("User not found");
 
-        verify(mailgunClient, never()).send(any(), any(), any(), any());
+        verify(mailgunClient, never()).sendHtml(any(), any(), any(), any());
         verify(idempotencyLogRepository, never()).save(any());
     }
 }

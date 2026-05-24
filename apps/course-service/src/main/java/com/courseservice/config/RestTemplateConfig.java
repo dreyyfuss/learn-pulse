@@ -10,14 +10,14 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        RestTemplate rt = new RestTemplate();
-        rt.getInterceptors().add((request, body, execution) -> {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.getInterceptors().add((request, body, execution) -> {
             String traceId = MDC.get("traceId");
             if (traceId != null) {
                 request.getHeaders().set("X-Trace-Id", traceId);
             }
             return execution.execute(request, body);
         });
-        return rt;
+        return restTemplate;
     }
 }

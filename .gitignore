@@ -19,3 +19,8 @@ Thumbs.db
 
 # Docker overrides
 docker-compose.override.yml
+
+# Backup / scratch files
+*.bak
+*.backup
+*.orig

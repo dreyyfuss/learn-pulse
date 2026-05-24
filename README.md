@@ -212,6 +212,21 @@ docker-compose.dev.yml
 
 ---
 
+## 🌍 Live Deployment
+
+The production instance runs on a VPS behind Traefik. The same `docker-compose.yml` is used in production — set the required secrets and run `docker compose up -d --build`.
+
+| URL | Service |
+|---|---|
+| http://learnpulse.io | LearnPulse web app (port 80 via Traefik) |
+| http://learnpulse.io:8090/dashboard/ | Traefik dashboard |
+| http://learnpulse.io:9010 | MinIO S3 API (presigned URLs) |
+| http://learnpulse.io:9001 | MinIO console |
+
+Continuous deployment is handled by the [GitHub Actions workflow](.github/workflows/deploy.yml) — every push to `main` runs all service tests, then SSHes into the VPS, pulls the latest code, rewrites `.env` from repository secrets, and runs `docker compose up -d --build --remove-orphans`. Deploy only proceeds when all four test suites pass.
+
+---
+
 ## 📚 Documentation
 
 | Document | Contents |
