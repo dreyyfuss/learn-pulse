@@ -3,7 +3,7 @@ import Icon from './Icon';
 export default function Notification({ children, onClose }) {
   return (
     <div style={{
-      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', maxWidth: 'calc(100vw - 32px)',
       background: 'var(--ink)', color: '#fbf8f3',
       padding: '12px 20px', borderRadius: 10, fontSize: 14,
       display: 'flex', alignItems: 'center', gap: 12,

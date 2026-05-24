@@ -28,13 +28,15 @@ public class CourseLockGuard {
         "execution(* com.courseservice.services.QuizService.upsertQuestions(..))"
     )
     public Object guardLocked(ProceedingJoinPoint pjp) throws Throwable {
-        UUID courseId = (UUID) pjp.getArgs()[0];
-        courseRepository.findById(courseId).ifPresent(course -> {
-            if (course.isLocked()) {
-                throw new CourseAlreadyStartedException(
-                        "Course is locked and cannot be modified.");
-            }
-        });
+        Object[] args = pjp.getArgs();
+        if (args.length > 0 && args[0] instanceof UUID courseId) {
+            courseRepository.findById(courseId).ifPresent(course -> {
+                if (course.isLocked()) {
+                    throw new CourseAlreadyStartedException(
+                            "Course is locked and cannot be modified.");
+                }
+            });
+        }
         return pjp.proceed();
     }
 }

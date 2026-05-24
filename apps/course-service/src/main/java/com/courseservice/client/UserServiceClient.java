@@ -1,6 +1,7 @@
 package com.courseservice.client;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class UserServiceClient {
@@ -33,6 +35,7 @@ public class UserServiceClient {
                     new ParameterizedTypeReference<>() {});
             return resp.getBody() != null ? resp.getBody() : Collections.emptyMap();
         } catch (Exception e) {
+            log.warn("user-service name batch failed ids={} reason={}", joined, e.getMessage());
             return Collections.emptyMap();
         }
     }

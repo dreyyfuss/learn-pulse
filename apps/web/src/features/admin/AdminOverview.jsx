@@ -50,14 +50,14 @@ export default function AdminOverview() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 32 }}>
         {loading
           ? [0,1,2,3,4,5].map(i => <SkeletonKPICard key={i} />)
           : kpis.map(s => <KPICard key={s.label} {...s} />)}
       </div>
 
       <h2 className="section-head" style={{ marginTop: 0 }}>Quick actions</h2>
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-secondary" onClick={() => navigate('/admin/users')}>
           <Icon name="users" size={15} /> Manage users
         </button>

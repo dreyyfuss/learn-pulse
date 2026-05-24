@@ -66,7 +66,7 @@ export default function MyCourses() {
 
   return (
     <div className="main">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 8 }}>
         <div>
           <div className="page-eyebrow">Teaching</div>
           <h1 className="page-title">My courses</h1>
@@ -102,7 +102,7 @@ export default function MyCourses() {
       )}
 
       {!loading && !error && courses.length > 0 && (
-        <div className="table-wrap">
+        <div className="my-courses-table table-wrap">
           <div className="table-row head" style={{ gridTemplateColumns: '1fr 120px 110px 130px 170px' }}>
             <div>Course</div>
             <div>Status</div>

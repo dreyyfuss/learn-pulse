@@ -86,13 +86,14 @@ body { margin: 0; background: var(--paper); }
   cursor: pointer;
   padding: 6px 0;
 }
-.navbar .brand img { width: 26px; height: 26px; }
+.navbar .brand img { display: block; width: 26px; height: 26px; }
 .navbar .brand span {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 17px;
   letter-spacing: -0.01em;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .nav-search {
@@ -1545,7 +1546,8 @@ body { margin: 0; background: var(--paper); }
   animation: lp-nav-in .5s var(--lp-ease) both;
 }
 .lp-nav-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0; }
-.lp-nav-logo { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -.01em; color: #fbf8f3; }
+.lp-nav-brand img { display: block; }
+.lp-nav-logo { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: -.01em; color: #fbf8f3; white-space: nowrap; }
 .lp-nav-links { display: flex; gap: 2px; margin: 0 auto; }
 .lp-nav-link { font-size: 14px; font-weight: 500; color: rgba(251,248,243,.65); text-decoration: none; padding: 7px 14px; border-radius: 8px; transition: background .12s, color .12s; }
 .lp-nav-link:hover { background: rgba(255,255,255,.08); color: #fbf8f3; }
@@ -1897,6 +1899,10 @@ body { margin: 0; background: var(--paper); }
   .analytics-table .table-row { min-width: 700px; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .main { padding: 28px 28px 80px; }
+  /* Table min-widths for teach/enrolment tables (triggers overflow-x scroll) */
+  .teach-courses-table .table-row { min-width: 560px; }
+  .my-courses-table    .table-row { min-width: 620px; }
+  .enrolment-table     .table-row { min-width: 560px; }
 }
 
 /* App shell — show hamburger, hide sidebar inline */
@@ -1954,6 +1960,9 @@ body { margin: 0; background: var(--paper); }
   .builder-tree { max-height: 260px; border-right: none; border-bottom: 1px solid var(--rule); }
   .builder-topbar { padding: 12px 16px; }
   .builder-editor { padding: 20px 16px; }
+
+  /* AI FAB: keep on-screen when drawer expands to full width */
+  .ai-fab { right: 16px !important; }
 }
 
 /* Mobile ≤ 640px */
@@ -1973,6 +1982,13 @@ body { margin: 0; background: var(--paper); }
   /* Course grid single column */
   .course-grid { grid-template-columns: 1fr; }
   .cert-grid { grid-template-columns: 1fr; }
+
+  /* Enrolment form: stack inputs vertically on mobile */
+  .enrol-form-grid { grid-template-columns: 1fr !important; }
+
+  /* Modal: reduce padding on small screens */
+  .modal { padding: 24px 20px; }
+  .modal-actions { flex-wrap: wrap; }
 }
 
 /* Landing page mobile */

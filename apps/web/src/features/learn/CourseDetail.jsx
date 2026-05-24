@@ -144,9 +144,9 @@ export default function CourseDetail() {
         <Icon name="arrow-left" size={15} /> Back to catalogue
       </button>
 
-      <div style={{ background: 'var(--indigo)', borderRadius: 16, padding: '40px 44px', marginBottom: 32, backgroundImage: 'radial-gradient(at 100% 0%, rgba(232,89,62,.3), transparent 55%)' }}>
+      <div style={{ background: 'var(--indigo)', borderRadius: 16, padding: 'clamp(20px, 5vw, 40px) clamp(20px, 5vw, 44px)', marginBottom: 32, backgroundImage: 'radial-gradient(at 100% 0%, rgba(232,89,62,.3), transparent 55%)' }}>
         <div className="page-eyebrow" style={{ color: 'rgba(251,248,243,.6)', marginBottom: 8 }}>{course.category}</div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 40, fontWeight: 500, letterSpacing: '-0.02em', color: '#fbf8f3', margin: '0 0 12px', lineHeight: 1.08, maxWidth: '22ch' }}>{course.title}</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 500, letterSpacing: '-0.02em', color: '#fbf8f3', margin: '0 0 12px', lineHeight: 1.08, maxWidth: '22ch' }}>{course.title}</h1>
         <p style={{ color: 'rgba(251,248,243,.75)', fontSize: 16, maxWidth: '52ch', margin: '0 0 24px', lineHeight: 1.6 }}>{course.description}</p>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 24 }}>
           <Avatar name={course.instructorName ?? 'Instructor'} size={28} />

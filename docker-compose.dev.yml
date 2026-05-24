@@ -144,6 +144,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     volumes:
       - minio-data:/data
     ports:
@@ -163,8 +164,8 @@ services:
       traefik.http.services.minio-console.loadbalancer.server.port: "9001"
     restart: unless-stopped
 
-  # Creates the learnpulse bucket and sets certificates folder public.
-  # MinIO handles CORS globally via cors_allow_origin=* (default), so no per-bucket CORS setup needed.
+  # Creates the learnpulse bucket, sets certificates folder public, and configures CORS
+  # so browsers can PUT to presigned upload URLs (cross-origin from the frontend origin).
   minio-init:
     image: minio/mc:latest
     depends_on:
@@ -177,6 +178,8 @@ services:
         mc alias set local http://minio:9000 minioadmin minioadmin &&
         mc mb --ignore-existing local/learnpulse &&
         mc anonymous set download local/learnpulse/certificates &&
+        mc admin config set local api cors_allow_origin="*" &&
+        mc admin service restart local || true &&
         echo 'MinIO bucket ready.'
     networks:
       - learnpulse
@@ -388,7 +391,7 @@ services:
       COURSE_SERVICE_URL: http://course-service:8080
       SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
       GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY in your shell or a .env file before starting the stack}
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
