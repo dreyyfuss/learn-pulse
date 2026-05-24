@@ -1255,6 +1255,7 @@ body { margin: 0; background: var(--paper); }
 .tree-lesson.active { background: var(--coral-50); color: var(--coral-600); }
 .tree-lesson .drag-handle { color: var(--ink-4); cursor: grab; }
 .builder-editor { flex: 1; padding: 28px 36px; overflow-y: auto; }
+.builder-editor-inner { max-width: 860px; margin: 0 auto; height: 100%; }
 .builder-topbar {
   display: flex;
   align-items: center;

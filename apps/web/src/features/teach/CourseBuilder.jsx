@@ -573,6 +573,7 @@ function EditCourseBuilder({ courseId }) {
 
         {/* Right — editor panel */}
         <div className="builder-editor">
+          <div className="builder-editor-inner">
           {isLocked && (
             <div className="locked-banner">
               <Icon name="lock" size={16} />
@@ -709,6 +710,7 @@ function EditCourseBuilder({ courseId }) {
               </>
             );
           })()}
+          </div>
         </div>
       </div>
 
