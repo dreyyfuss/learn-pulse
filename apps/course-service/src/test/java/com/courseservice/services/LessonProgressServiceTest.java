@@ -2,15 +2,12 @@ package com.courseservice.services;
 
 import com.courseservice.dto.response.LessonCompleteResponse;
 import com.courseservice.enums.CourseVisibility;
-import com.courseservice.enums.EnrolmentStatus;
 import com.courseservice.exception.LessonOutOfOrderException;
 import com.courseservice.exception.ModuleLockedForUserException;
-import com.courseservice.events.producers.CourseEventProducer;
 import com.courseservice.models.*;
 import com.courseservice.repositories.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,8 +31,8 @@ class LessonProgressServiceTest {
     @Mock EnrolmentRepository enrolmentRepository;
     @Mock LessonProgressRepository lessonProgressRepository;
     @Mock ModuleUnlockRepository moduleUnlockRepository;
-    @Mock ModuleRepository moduleRepository;
-    @Mock CourseEventProducer courseEventProducer;
+    @Mock ModuleProgressChecker moduleProgressChecker;
+    @Mock StreakService streakService;
 
     @InjectMocks LessonProgressService lessonProgressService;
 
@@ -49,10 +46,8 @@ class LessonProgressServiceTest {
 
     @Test
     void complete_happyPath_savesProgressAndReturnsUnlockedModule() {
-        // Single lesson in module 1; module 2 exists (not last module)
         Course course = buildCourse();
         com.courseservice.models.Module module1 = buildModule(MODULE1_ID, course, 1);
-        com.courseservice.models.Module module2 = buildModule(MODULE2_ID, course, 2);
         Lesson lesson = buildLesson(LESSON_ID, module1, 1);
         Enrolment enrolment = buildEnrolment(COURSE_ID);
 
@@ -62,24 +57,21 @@ class LessonProgressServiceTest {
                 .thenReturn(Optional.of(new ModuleUnlock()));
         when(lessonRepository.findByModuleIdOrderByOrderIndex(MODULE1_ID)).thenReturn(List.of(lesson));
         when(lessonProgressRepository.findByUserIdAndLessonId(USER_ID, LESSON_ID)).thenReturn(Optional.empty());
-        when(lessonProgressRepository.save(any(LessonProgress.class))).thenAnswer(inv -> {
-            LessonProgress p = inv.getArgument(0);
-            p.setId(UUID.randomUUID());
-            return p;
-        });
-        when(moduleRepository.findByCourseIdOrderByOrderIndex(COURSE_ID)).thenReturn(List.of(module1, module2));
+        when(lessonProgressRepository.save(any(LessonProgress.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(moduleProgressChecker.tryComplete(any(), any()))
+                .thenReturn(new ModuleProgressChecker.ModuleProgressResult(MODULE2_ID, false));
 
         LessonCompleteResponse response = lessonProgressService.complete(LESSON_ID, USER_ID);
 
         assertThat(response.lessonId()).isEqualTo(LESSON_ID);
         assertThat(response.nextModuleId()).isEqualTo(MODULE2_ID);
         assertThat(response.courseCompleted()).isFalse();
-        verify(moduleUnlockRepository, times(1)).save(any(ModuleUnlock.class));
+        verify(lessonProgressRepository, times(1)).save(any(LessonProgress.class));
+        verify(streakService).recordActivity(USER_ID);
     }
 
     @Test
     void complete_lastLessonInFinalModule_completesCourse() {
-        // Single lesson in single module — completing it finishes the course
         Course course = buildCourse();
         com.courseservice.models.Module module = buildModule(MODULE1_ID, course, 1);
         Lesson lesson = buildLesson(LESSON_ID, module, 1);
@@ -92,18 +84,14 @@ class LessonProgressServiceTest {
         when(lessonRepository.findByModuleIdOrderByOrderIndex(MODULE1_ID)).thenReturn(List.of(lesson));
         when(lessonProgressRepository.findByUserIdAndLessonId(USER_ID, LESSON_ID)).thenReturn(Optional.empty());
         when(lessonProgressRepository.save(any(LessonProgress.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(moduleRepository.findByCourseIdOrderByOrderIndex(COURSE_ID)).thenReturn(List.of(module));
-        when(enrolmentRepository.save(any(Enrolment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(moduleProgressChecker.tryComplete(any(), any()))
+                .thenReturn(new ModuleProgressChecker.ModuleProgressResult(null, true));
 
         LessonCompleteResponse response = lessonProgressService.complete(LESSON_ID, USER_ID);
 
         assertThat(response.courseCompleted()).isTrue();
         assertThat(response.nextModuleId()).isNull();
-
-        ArgumentCaptor<Enrolment> captor = ArgumentCaptor.forClass(Enrolment.class);
-        verify(enrolmentRepository).save(captor.capture());
-        assertThat(captor.getValue().getStatus()).isEqualTo(EnrolmentStatus.COMPLETED);
-        assertThat(captor.getValue().getCompletedAt()).isNotNull();
+        verify(moduleProgressChecker).tryComplete(any(), any());
     }
 
     @Test
@@ -126,8 +114,8 @@ class LessonProgressServiceTest {
     void complete_prerequisiteNotDone_throwsLessonOutOfOrder() {
         Course course = buildCourse();
         com.courseservice.models.Module module = buildModule(MODULE1_ID, course, 1);
-        Lesson lesson1 = buildLesson(LESSON2_ID, module, 1);  // prerequisite
-        Lesson lesson2 = buildLesson(LESSON_ID, module, 2);   // target
+        Lesson lesson1 = buildLesson(LESSON2_ID, module, 1);
+        Lesson lesson2 = buildLesson(LESSON_ID, module, 2);
         Enrolment enrolment = buildEnrolment(COURSE_ID);
 
         when(lessonRepository.findById(LESSON_ID)).thenReturn(Optional.of(lesson2));
@@ -162,11 +150,14 @@ class LessonProgressServiceTest {
         when(lessonRepository.findByModuleIdOrderByOrderIndex(MODULE1_ID)).thenReturn(List.of(lesson));
         when(lessonProgressRepository.findByUserIdAndLessonId(USER_ID, LESSON_ID))
                 .thenReturn(Optional.of(existing));
+        when(moduleProgressChecker.tryComplete(any(), any()))
+                .thenReturn(new ModuleProgressChecker.ModuleProgressResult(null, false));
 
         LessonCompleteResponse response = lessonProgressService.complete(LESSON_ID, USER_ID);
 
         assertThat(response.lessonId()).isEqualTo(LESSON_ID);
         verify(lessonProgressRepository, never()).save(any());
+        verify(streakService, never()).recordActivity(any());
     }
 
     // --- helpers ---

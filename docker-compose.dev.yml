@@ -378,6 +378,8 @@ services:
   ai-service:
     build:
       context: ./apps/ai-service
+    volumes:
+      - hf-cache:/root/.cache/huggingface
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CHROMA_HOST: chromadb
@@ -385,13 +387,16 @@ services:
       REDIS_URL: redis://redis:6379
       COURSE_SERVICE_URL: http://course-service:8080
       SERVICE_AUTH_SECRET: ${SERVICE_AUTH_SECRET:-change-me-in-dev}
-      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
-      CEREBRAS_MODEL: ${CEREBRAS_MODEL:-llama-3.1-8b}
+      GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
       S3_BUCKET: "learnpulse"
+      KAFKA_TOPIC_COURSE_GENERATION_REQUESTED: "course.generation.requested"
+      KAFKA_TOPIC_COURSE_GENERATION_COMPLETED: "course.generation.completed"
+      KAFKA_TOPIC_COURSE_GENERATION_FAILED: "course.generation.failed"
+      KAFKA_GROUP_ID_GENERATION: "ai-service-course-builder"
     networks:
       - learnpulse
     ports:
@@ -406,7 +411,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/healthz"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/healthz')"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -428,6 +433,7 @@ volumes:
   chroma-data:
   prometheus-data:
   grafana-data:
+  hf-cache:
 
 networks:
   learnpulse:

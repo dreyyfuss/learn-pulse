@@ -5,6 +5,7 @@ import ProgressBar from '../../components/ProgressBar';
 import Notification from '../../components/Notification';
 import AiChatDrawer from './AiChatDrawer';
 import LessonContentViewer from '../../components/LessonContentViewer';
+import QuizPlayer from '../../components/QuizPlayer';
 import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
 import { getErrorMessage } from '../../utils/errorMessages';
@@ -19,9 +20,11 @@ export default function CoursePlayer() {
   const [courseName, setCourseName]           = useState('');
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState('');
-  const [currentLessonId, setCurrentLessonId] = useState(null);
-  const [completedIds, setCompletedIds]       = useState(new Set());
+  const [currentItemId, setCurrentItemId]     = useState(null);
+  const [completedIds, setCompletedIds]       = useState(new Set()); // lesson IDs
+  const [passedQuizIds, setPassedQuizIds]     = useState(new Set()); // quiz IDs
   const [showAI, setShowAI]                   = useState(false);
+  const [showLessonPanel, setShowLessonPanel] = useState(false);
   const [toast, setToast]                     = useState('');
   const [celebration, setCelebration]         = useState(false);
   const [certUuid, setCertUuid]               = useState(null);
@@ -54,17 +57,19 @@ export default function CoursePlayer() {
       .then(({ courseData, prog }) => {
         const pmMap = new Map((prog.modules ?? []).map(pm => [pm.moduleId, pm]));
         const merged = (courseData.modules ?? []).map(cm => {
-          const pm = pmMap.get(cm.id) ?? { unlocked: false, lessons: [] };
+          const pm = pmMap.get(cm.id) ?? { unlocked: false, lessons: [], quizzes: [] };
           const plMap = new Map((pm.lessons ?? []).map(l => [l.lessonId, l]));
+          const pqMap = new Map((pm.quizzes ?? []).map(q => [q.quizId, q]));
           return {
             moduleId:   cm.id,
             title:      cm.title,
             orderIndex: cm.orderIndex,
             unlocked:   pm.unlocked,
-            lessons:    (cm.lessons ?? []).map(cl => {
+            lessons: (cm.lessons ?? []).map(cl => {
               const pl = plMap.get(cl.id) ?? { completed: false };
               return {
-                lessonId:    cl.id,
+                itemId:      cl.id,
+                _type:       'lesson',
                 title:       cl.title,
                 orderIndex:  cl.orderIndex,
                 contentType: cl.contentType,
@@ -72,17 +77,47 @@ export default function CoursePlayer() {
                 completed:   pl.completed,
               };
             }),
+            quizzes: (cm.quizzes ?? []).map(cq => {
+              const pq = pqMap.get(cq.id) ?? { passed: false };
+              return {
+                itemId:     cq.id,
+                _type:      'quiz',
+                title:      cq.title,
+                orderIndex: cq.orderIndex,
+                passed:     pq.passed,
+              };
+            }),
           };
         });
         setResolvedModules(merged);
-        setCompletedIds(new Set(
-          merged.flatMap(m => m.lessons.filter(l => l.completed).map(l => l.lessonId))
-        ));
-        if (prog.currentLessonId) {
-          setCurrentLessonId(prog.currentLessonId);
+
+        const doneLesson = new Set(
+          merged.flatMap(m => m.lessons.filter(l => l.completed).map(l => l.itemId))
+        );
+        const doneQuiz = new Set(
+          merged.flatMap(m => m.quizzes.filter(q => q.passed).map(q => q.itemId))
+        );
+        setCompletedIds(doneLesson);
+        setPassedQuizIds(doneQuiz);
+
+        // Determine starting item
+        const firstIncomplete = merged
+          .filter(m => m.unlocked)
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .flatMap(m => [
+            ...m.lessons.map(l => l),
+            ...m.quizzes.map(q => q),
+          ].sort((a, b) => a.orderIndex - b.orderIndex))
+          .find(item => item._type === 'lesson' ? !item.completed : !item.passed);
+
+        if (firstIncomplete) {
+          setCurrentItemId(firstIncomplete.itemId);
         } else {
-          const first = merged.find(m => m.unlocked)?.lessons?.[0];
-          if (first) setCurrentLessonId(first.lessonId);
+          // All done — start at first item of first unlocked module
+          const firstItem = merged.find(m => m.unlocked)
+            ?.lessons?.concat(merged.find(m => m.unlocked)?.quizzes ?? [])
+            ?.sort((a, b) => a.orderIndex - b.orderIndex)?.[0];
+          if (firstItem) setCurrentItemId(firstItem.itemId);
         }
       })
       .catch(err => setError(getErrorMessage(err)))
@@ -91,12 +126,24 @@ export default function CoursePlayer() {
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  const allLessons = resolvedModules.flatMap(m => m.lessons);
-  const lesson     = allLessons.find(l => l.lessonId === currentLessonId);
-  const mod        = resolvedModules.find(m => m.lessons.some(l => l.lessonId === currentLessonId));
-  const isComplete = completedIds.has(currentLessonId);
-  const totalDone  = completedIds.size;
-  const currentIdx = allLessons.findIndex(l => l.lessonId === currentLessonId);
+  // Flat list of all items across all modules, sorted by module order then item order
+  const allItems = resolvedModules
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap(m => [
+      ...m.lessons,
+      ...m.quizzes,
+    ].sort((a, b) => a.orderIndex - b.orderIndex));
+
+  const currentItem = allItems.find(i => i.itemId === currentItemId);
+  const mod         = resolvedModules.find(m =>
+    [...m.lessons, ...m.quizzes].some(i => i.itemId === currentItemId)
+  );
+  const isLesson    = currentItem?._type === 'lesson';
+  const isComplete  = isLesson
+    ? completedIds.has(currentItemId)
+    : passedQuizIds.has(currentItemId);
+  const totalDone   = completedIds.size + passedQuizIds.size;
+  const currentIdx  = allItems.findIndex(i => i.itemId === currentItemId);
 
   const startCertPoll = (courseIdToWatch) => {
     setCertPolling(true);
@@ -122,11 +169,11 @@ export default function CoursePlayer() {
   };
 
   const markComplete = async () => {
-    if (!currentLessonId || isComplete) return;
-    const nextLesson = allLessons[currentIdx + 1];
+    if (!currentItemId || isComplete || !isLesson) return;
+    const nextItem = allItems[currentIdx + 1];
     try {
-      const result = await enrolmentService.completeLesson(currentLessonId);
-      setCompletedIds(prev => new Set([...prev, currentLessonId]));
+      const result = await enrolmentService.completeLesson(currentItemId);
+      setCompletedIds(prev => new Set([...prev, currentItemId]));
       if (result.courseCompleted) {
         setCelebration(true);
         startCertPoll(courseId);
@@ -138,14 +185,30 @@ export default function CoursePlayer() {
           m.moduleId === result.nextModuleId ? { ...m, unlocked: true } : m
         ));
       }
-      if (nextLesson) {
-        const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === nextLesson.lessonId));
+      if (nextItem) {
+        const nextMod = resolvedModules.find(m =>
+          [...m.lessons, ...m.quizzes].some(i => i.itemId === nextItem.itemId)
+        );
         const willUnlock = nextMod?.moduleId === result.nextModuleId || nextMod?.unlocked;
-        if (willUnlock) setTimeout(() => setCurrentLessonId(nextLesson.lessonId), 800);
+        if (willUnlock) setTimeout(() => setCurrentItemId(nextItem.itemId), 800);
       }
     } catch (err) {
       setToast(getErrorMessage(err));
       setTimeout(() => setToast(''), 3000);
+    }
+  };
+
+  const handleQuizPassed = ({ nextModuleId, courseCompleted }) => {
+    setPassedQuizIds(prev => new Set([...prev, currentItemId]));
+    if (courseCompleted) {
+      setCelebration(true);
+      startCertPoll(courseId);
+      return;
+    }
+    if (nextModuleId) {
+      setResolvedModules(prev => prev.map(m =>
+        m.moduleId === nextModuleId ? { ...m, unlocked: true } : m
+      ));
     }
   };
 
@@ -182,8 +245,8 @@ export default function CoursePlayer() {
           className="btn btn-primary"
           onClick={() => {
             certificateService.downloadUrl(certUuid)
-              .then(res => window.open(res.data ?? res, '_blank', 'noopener'))
-              .catch(() => alert('Download unavailable. Check My Certificates.'));
+              .then(url => window.open(url, '_blank', 'noopener'))
+              .catch(() => { setToast('Download unavailable. Check My Certificates.'); setTimeout(() => setToast(''), 3500); });
           }}
         >
           <Icon name="download" size={15} /> Download Certificate
@@ -212,72 +275,100 @@ export default function CoursePlayer() {
         </button>
 
         <div>
-          {lesson && (
-            <LessonContentViewer
-              courseId={courseId}
-              moduleId={mod?.moduleId}
-              lessonId={lesson.lessonId}
-            />
-          )}
-
-          {lesson && (
+          {currentItem && isLesson && (
             <div className="lesson-body">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <span className="lesson-content-type">
                   <Icon name={
-                    lesson.contentType === 'VIDEO' ? 'play-circle' :
-                    lesson.contentType === 'DOCUMENT' ? 'file-text' : 'book-open'
+                    currentItem.contentType === 'VIDEO' ? 'play-circle' :
+                    currentItem.contentType === 'DOCUMENT' ? 'file-text' : 'book-open'
                   } size={13} />
-                  {lesson.contentType?.charAt(0) + (lesson.contentType?.slice(1).toLowerCase() ?? '')}
+                  {currentItem.contentType?.charAt(0) + (currentItem.contentType?.slice(1).toLowerCase() ?? '')}
                 </span>
               </div>
-              <div className="lesson-breadcrumb">{mod?.title} / {lesson.title}</div>
-              <h2 className="lesson-title">{lesson.title}</h2>
+              <div className="lesson-breadcrumb">{mod?.title} / {currentItem.title}</div>
+              <h2 className="lesson-title">{currentItem.title}</h2>
+            </div>
+          )}
+
+          {currentItem && isLesson && (
+            <LessonContentViewer
+              courseId={courseId}
+              moduleId={mod?.moduleId}
+              lessonId={currentItem.itemId}
+            />
+          )}
+
+          {currentItem && !isLesson && (
+            <div style={{ paddingTop: 8 }}>
+              <QuizPlayer
+                key={currentItem.itemId}
+                quizId={currentItem.itemId}
+                onPassed={handleQuizPassed}
+              />
             </div>
           )}
         </div>
       </div>
 
-      <div className="lesson-sidebar">
+      {showLessonPanel && (
+        <div className="lesson-panel-backdrop active" onClick={() => setShowLessonPanel(false)} />
+      )}
+
+      <div className={`lesson-sidebar${showLessonPanel ? ' panel-open' : ''}`}>
         <div className="lesson-tree">
           <div className="lesson-tree-head">
             <div className="lt-eyebrow">Course progress</div>
             <div className="lt-progress">
-              <ProgressBar value={allLessons.length ? Math.round((totalDone / allLessons.length) * 100) : 0} />
-              <span className="prog-label">{totalDone}/{allLessons.length}</span>
+              <ProgressBar value={allItems.length ? Math.round((totalDone / allItems.length) * 100) : 0} />
+              <span className="prog-label">{totalDone}/{allItems.length}</span>
             </div>
           </div>
-          {resolvedModules.map(m => (
-            <div key={m.moduleId} className="module-block">
-              <div className={`module-header${!m.unlocked ? ' locked' : ''}`}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {!m.unlocked
-                    ? <Icon name="lock" size={13} color="var(--ink-4)" />
-                    : <Icon name="chevron-down" size={13} color="var(--ink-3)" />}
-                  <span className="mod-title">{m.title}</span>
-                </div>
-                <span className="mod-count">
-                  {m.lessons.filter(l => completedIds.has(l.lessonId)).length}/{m.lessons.length}
-                </span>
-              </div>
-              {m.unlocked && m.lessons.map((l, i) => (
-                <div
-                  key={l.lessonId}
-                  className={`lesson-item${l.lessonId === currentLessonId ? ' active' : ''}`}
-                  onClick={() => setCurrentLessonId(l.lessonId)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className={`lesson-dot${completedIds.has(l.lessonId) ? ' done' : l.lessonId === currentLessonId ? ' current' : ''}`}>
-                    {completedIds.has(l.lessonId) ? '✓' : i + 1}
+          {resolvedModules.map(m => {
+            const moduleItems = [...m.lessons, ...m.quizzes].sort((a, b) => a.orderIndex - b.orderIndex);
+            const moduleDone  = m.lessons.filter(l => completedIds.has(l.itemId)).length
+                              + m.quizzes.filter(q => passedQuizIds.has(q.itemId)).length;
+            return (
+              <div key={m.moduleId} className="module-block">
+                <div className={`module-header${!m.unlocked ? ' locked' : ''}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {!m.unlocked
+                      ? <Icon name="lock" size={13} color="var(--ink-4)" />
+                      : <Icon name="chevron-down" size={13} color="var(--ink-3)" />}
+                    <span className="mod-title">{m.title}</span>
                   </div>
-                  <span style={{ lineHeight: 1.3 }}>{l.title}</span>
-                  <span className="lesson-time" style={{ fontSize: 11, textTransform: 'capitalize' }}>
-                    {l.contentType?.toLowerCase()}
-                  </span>
+                  <span className="mod-count">{moduleDone}/{moduleItems.length}</span>
                 </div>
-              ))}
-            </div>
-          ))}
+                {m.unlocked && moduleItems.map((item, i) => {
+                  const done = item._type === 'lesson'
+                    ? completedIds.has(item.itemId)
+                    : passedQuizIds.has(item.itemId);
+                  return (
+                    <div
+                      key={item.itemId}
+                      className={`lesson-item${item.itemId === currentItemId ? ' active' : ''}`}
+                      onClick={() => { setCurrentItemId(item.itemId); setShowLessonPanel(false); }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className={`lesson-dot${done ? ' done' : item.itemId === currentItemId ? ' current' : ''}`}>
+                        {done ? '✓' : i + 1}
+                      </div>
+                      <span style={{ lineHeight: 1.3 }}>{item.title}</span>
+                      <span className="lesson-time" style={{ fontSize: 11 }}>
+                        {item._type === 'quiz' ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Icon name="help-circle" size={10} /> Quiz
+                          </span>
+                        ) : (
+                          item.contentType?.toLowerCase()
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -285,31 +376,37 @@ export default function CoursePlayer() {
         <button
           className="btn btn-secondary btn-sm"
           disabled={currentIdx <= 0}
-          onClick={() => { if (currentIdx > 0) setCurrentLessonId(allLessons[currentIdx - 1].lessonId); }}
+          onClick={() => { if (currentIdx > 0) setCurrentItemId(allItems[currentIdx - 1].itemId); }}
         >
           <Icon name="chevron-left" size={15} /> Previous
         </button>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button
-            className={`btn btn-sm ${isComplete ? 'btn-secondary' : 'btn-pulse'}`}
-            onClick={markComplete}
-            disabled={isComplete || !mod?.unlocked}
-          >
-            {isComplete ? <><Icon name="check" size={14} /> Completed ✓</> : 'Mark as complete'}
-          </button>
+          {isLesson && (
+            <button
+              className={`btn btn-sm ${isComplete ? 'btn-secondary' : 'btn-pulse'}`}
+              onClick={markComplete}
+              disabled={isComplete || !mod?.unlocked}
+            >
+              {isComplete ? <><Icon name="check" size={14} /> Completed ✓</> : 'Mark as complete'}
+            </button>
+          )}
           <button
             className="btn btn-primary btn-sm"
-            disabled={currentIdx >= allLessons.length - 1 || (() => {
-              const next = allLessons[currentIdx + 1];
+            disabled={currentIdx >= allItems.length - 1 || (() => {
+              const next = allItems[currentIdx + 1];
               if (!next) return true;
-              const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === next.lessonId));
+              const nextMod = resolvedModules.find(m =>
+                [...m.lessons, ...m.quizzes].some(i => i.itemId === next.itemId)
+              );
               return !nextMod?.unlocked;
             })()}
             onClick={() => {
-              const next = allLessons[currentIdx + 1];
+              const next = allItems[currentIdx + 1];
               if (next) {
-                const nextMod = resolvedModules.find(m => m.lessons.some(l => l.lessonId === next.lessonId));
-                if (nextMod?.unlocked) setCurrentLessonId(next.lessonId);
+                const nextMod = resolvedModules.find(m =>
+                  [...m.lessons, ...m.quizzes].some(i => i.itemId === next.itemId)
+                );
+                if (nextMod?.unlocked) setCurrentItemId(next.itemId);
               }
             }}
           >
@@ -317,6 +414,14 @@ export default function CoursePlayer() {
           </button>
         </div>
       </div>
+
+      <button
+        className="btn btn-primary lesson-panel-btn"
+        onClick={() => setShowLessonPanel(o => !o)}
+      >
+        <Icon name="layout-dashboard" size={14} />
+        Lessons ({allItems.length ? `${totalDone}/${allItems.length}` : '…'})
+      </button>
 
       <button className="ai-fab" style={{ right: showAI ? 440 : 24 }} onClick={() => setShowAI(!showAI)}>
         <Icon name="sparkles" size={15} /> Ask AI

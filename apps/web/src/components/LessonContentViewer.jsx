@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import courseService from '../services/courseService.js';
 import Icon from './Icon.jsx';
 
@@ -55,15 +56,8 @@ export default function LessonContentViewer({ courseId, moduleId, lessonId }) {
       )}
 
       {type === 'ARTICLE' && (
-        <div className="markdown-body" style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--rule)',
-          borderRadius: 12,
-          padding: '20px 24px',
-          lineHeight: 1.7,
-          fontSize: 15,
-        }}>
-          <ReactMarkdown>{markdown || 'No content.'}</ReactMarkdown>
+        <div className="lesson-reading">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown || 'No content.'}</ReactMarkdown>
         </div>
       )}
 

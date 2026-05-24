@@ -38,6 +38,14 @@
   --info:       #2A2D7C;
   --info-bg:    #E4E5F2;
 
+  /* Category gradient pairs — used for course card thumbs */
+  --cat-cs-from:      #1F2160; --cat-cs-mid:      #4144A6; --cat-cs-accent:      rgba(232,89,62,.32);
+  --cat-design-from:  #2D1A48; --cat-design-mid:  #7B35B0; --cat-design-accent:  rgba(232,89,62,.28);
+  --cat-writing-from: #3D1805; --cat-writing-mid: #B05510; --cat-writing-accent: rgba(228,174,62,.38);
+  --cat-data-from:    #092B38; --cat-data-mid:    #146690; --cat-data-accent:    rgba(45,210,175,.28);
+  --cat-biz-from:     #182D0E; --cat-biz-mid:     #2A6B1A; --cat-biz-accent:     rgba(100,210,65,.22);
+  --cat-default-from: #1F2160; --cat-default-mid: #4144A6; --cat-default-accent: rgba(232,89,62,.22);
+
   /* Aliases */
   --fg-1: var(--ink);
   --fg-2: var(--ink-2);
@@ -58,16 +66,16 @@
 
   /* Typography */
   --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
-  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans:    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --fs-display: clamp(40px, 4.6vw, 64px);
-  --fs-h1:      clamp(32px, 3.4vw, 44px);
-  --fs-h2:      28px;
-  --fs-h3:      22px;
-  --fs-h4:      18px;
+  --fs-h1:      clamp(32px, 3.4vw, 48px);
+  --fs-h2:      clamp(22px, 2.4vw, 32px);
+  --fs-h3:      clamp(18px, 2vw, 24px);
+  --fs-h4:      clamp(15px, 1.6vw, 19px);
   --fs-body:    16px;
-  --fs-body-lg: 18px;
+  --fs-body-lg: clamp(16px, 1.4vw, 18px);
   --fs-small:   14px;
   --fs-caption: 12px;
 
@@ -81,20 +89,24 @@
   --tr-normal:  0;
   --tr-wide:    0.04em;
 
-  /* Spacing */
+  /* Spacing (8px base grid) */
   --sp-1: 4px;  --sp-2: 8px;   --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px;  --sp-7: 32px; --sp-8: 40px;
   --sp-9: 56px; --sp-10: 72px; --sp-11: 96px;--sp-12: 128px;
 
   /* Radii */
-  --r-1: 4px; --r-2: 8px; --r-3: 12px; --r-4: 16px; --r-pill: 999px;
+  --r-1: 4px; --r-2: 8px; --r-3: 12px; --r-4: 16px; --r-5: 20px; --r-pill: 999px;
 
   /* Shadows */
   --shadow-1: 0 1px 0 rgba(26,26,28,.04), 0 1px 2px rgba(26,26,28,.04);
-  --shadow-2: 0 1px 0 rgba(26,26,28,.04), 0 4px 12px rgba(26,26,28,.06);
-  --shadow-3: 0 2px 0 rgba(26,26,28,.04), 0 12px 28px rgba(26,26,28,.10);
+  --shadow-2: 0 1px 0 rgba(26,26,28,.04), 0 4px 12px rgba(26,26,28,.08);
+  --shadow-3: 0 2px 0 rgba(26,26,28,.04), 0 12px 28px rgba(26,26,28,.11);
+  --shadow-4: 0 4px 0 rgba(26,26,28,.03), 0 24px 48px rgba(26,26,28,.15);
   --shadow-inset: inset 0 0 0 1px var(--rule);
   --ring-focus: 0 0 0 3px rgba(42,45,124,.22);
+  --shadow-btn: 0 1px 2px rgba(26,26,28,.08);
+  --shadow-btn-hover: 0 4px 14px rgba(26,26,28,.14);
+  --shadow-card-hover: 0 4px 6px -1px rgba(26,26,28,.04), 0 16px 36px -4px rgba(26,26,28,.12);
 
   /* Motion */
   --ease-out:    cubic-bezier(.22,.61,.36,1);
@@ -104,6 +116,8 @@
   /* Layout */
   --container: 1200px;
   --container-narrow: 760px;
+  --sidebar-w: 252px;
+  --navbar-h: 62px;
 }
 
 html, body {

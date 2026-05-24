@@ -60,7 +60,7 @@ export default function LoginPage() {
           {error && <p style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>{error}</p>}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <a href="#" style={{ fontSize: 13, color: 'var(--indigo)' }}>Forgot password?</a>
+            <span style={{ fontSize: 13, color: 'var(--ink-4)' }}>Forgot password? Contact your admin.</span>
           </div>
 
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} type="submit" disabled={loading}>

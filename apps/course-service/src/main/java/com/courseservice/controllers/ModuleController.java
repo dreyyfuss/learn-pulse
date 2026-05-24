@@ -7,6 +7,9 @@ import com.courseservice.dto.response.ApiResponse;
 import com.courseservice.dto.response.ModuleDetailResponse;
 import com.courseservice.security.UserPrincipal;
 import com.courseservice.services.ModuleService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Modules", description = "Course module management")
 @RestController
 @RequestMapping("/api/courses/{courseId}/modules")
 @RequiredArgsConstructor
@@ -24,6 +28,12 @@ public class ModuleController {
 
     private final ModuleService moduleService;
 
+    @Operation(summary = "Create a module")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Module created"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<ModuleDetailResponse>> create(
@@ -35,6 +45,11 @@ public class ModuleController {
                 .body(ApiResponse.success(moduleService.create(courseId, req, instructorId), "Module created"));
     }
 
+    @Operation(summary = "Reorder modules")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Modules reordered"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PutMapping("/reorder")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<Void> reorder(
@@ -46,6 +61,12 @@ public class ModuleController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Update module")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Module updated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Module not found")
+    })
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<ModuleDetailResponse>> update(
@@ -58,6 +79,12 @@ public class ModuleController {
                 moduleService.update(courseId, id, req, instructorId), "Module updated"));
     }
 
+    @Operation(summary = "Delete module")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Module deleted"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Module not found")
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<Void> delete(

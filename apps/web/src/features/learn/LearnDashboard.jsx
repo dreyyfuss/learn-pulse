@@ -8,8 +8,11 @@ import Tag from '../../components/Tag';
 import useAuthStore from '../../store/authStore';
 import enrolmentService from '../../services/enrolmentService';
 import courseService from '../../services/courseService';
+import streakService from '../../services/streakService';
+import useStreakStore, { getStreakState } from '../../store/streakStore';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
+import { categoryGradient } from '../../utils/categoryColor';
 
 export default function LearnDashboard() {
   const navigate = useNavigate();
@@ -24,10 +27,11 @@ export default function LearnDashboard() {
   const [pendingEnrolment, setPendingEnrolment] = useState(null);
   const [starting, setStarting]                 = useState(false);
   const [toast, setToast]                       = useState('');
+  const { streak, setStreak }                   = useStreakStore();
 
   useEffect(() => {
-    Promise.all([enrolmentService.listMine(), courseService.list({ size: 100 })])
-      .then(([enrolData, courseData]) => {
+    Promise.all([enrolmentService.listMine(), courseService.list({ size: 100 }), streakService.getMine()])
+      .then(([enrolData, courseData, streakData]) => {
         const items = enrolData.items ?? [];
         setEnrolments(items);
         const enrolledIds = new Set(items.map(e => e.courseId));
@@ -35,6 +39,7 @@ export default function LearnDashboard() {
           c => c.status === 'PUBLISHED' && !enrolledIds.has(c.courseId ?? c.id)
         );
         setExploreCourses(avail);
+        setStreak(streakData.data ?? streakData);
       })
       .catch(e => setError(getErrorMessage(e)))
       .finally(() => setLoading(false));
@@ -84,6 +89,24 @@ export default function LearnDashboard() {
         </div>
       )}
 
+      {(() => {
+        const state = getStreakState(streak);
+        if (state === 'none') return null;
+        const done = state === 'done';
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: done ? 'var(--coral-50)' : 'var(--warning-bg)',
+            border: `1px solid ${done ? 'var(--coral-200)' : 'rgba(176,122,28,.35)'}`,
+            borderRadius: 'var(--r-pill)', padding: '4px 12px', fontSize: 13, fontWeight: 600,
+            color: done ? 'var(--coral)' : 'var(--warning)', marginBottom: 16 }}>
+            <Icon name="flame" size={13} color={done ? 'var(--coral)' : 'var(--warning)'} />
+            {streak.currentStreak}-day streak
+            {done
+              ? <Icon name="check-circle" size={13} color="var(--coral)" />
+              : <span style={{ fontWeight: 400, fontSize: 12 }}> — keep it going today</span>}
+          </div>
+        );
+      })()}
       <div style={{ display: 'flex', gap: 10, marginBottom: 36 }}>
         {continueCourse ? (
           <button className="btn btn-primary" onClick={() => navigate(`/learn/courses/${continueCourse.courseId}/play`)}>
@@ -105,13 +128,18 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {inProgress.map(e => (
               <div key={e.enrolmentId} className="course-card" onClick={() => navigate(`/learn/courses/${e.courseId}/play`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div className="card-eyebrow">{e.courseTitle}</div>
-                <h3>{e.courseTitle}</h3>
-                <div className="card-footer">
-                  <ProgressBar value={e.progressPercent ?? 0} />
-                  <div className="card-stats">
-                    <span>{e.progressPercent ?? 0}% complete</span>
+                <div className="thumb" style={{ background: categoryGradient(e.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                </div>
+                <div className="card-body">
+                  <div className="card-eyebrow">{e.category || 'Course'}</div>
+                  <h3>{e.courseTitle}</h3>
+                  <div className="card-footer">
+                    <ProgressBar value={e.progressPercent ?? 0} />
+                    <div className="card-stats">
+                      <span>{e.progressPercent ?? 0}% complete</span>
+                      <span style={{ color: 'var(--coral)', fontWeight: 600 }}>In progress</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -126,17 +154,21 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {notStarted.map(e => (
               <div key={e.enrolmentId} className="course-card" onClick={() => navigate(`/learn/courses/${e.courseId}`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div className="card-eyebrow">{e.courseTitle}</div>
-                <h3>{e.courseTitle}</h3>
-                <div className="card-footer">
-                  <button
-                    className="btn btn-pulse btn-sm"
-                    style={{ alignSelf: 'flex-start' }}
-                    onClick={(ev) => { ev.stopPropagation(); openStartModal(e); }}
-                  >
-                    Start Course <Icon name="play" size={13} />
-                  </button>
+                <div className="thumb" style={{ background: categoryGradient(e.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                </div>
+                <div className="card-body">
+                  <div className="card-eyebrow">{e.category || 'Course'}</div>
+                  <h3>{e.courseTitle}</h3>
+                  <div className="card-footer">
+                    <button
+                      className="btn btn-pulse btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={(ev) => { ev.stopPropagation(); openStartModal(e); }}
+                    >
+                      Start Course <Icon name="play" size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -150,17 +182,24 @@ export default function LearnDashboard() {
           <div className="course-grid">
             {exploreCourses.map(c => (
               <div key={c.courseId ?? c.id} className="course-card" onClick={() => navigate(`/learn/courses/${c.courseId ?? c.id}`)}>
-                <div className="thumb"><Icon name="book-open" size={32} className="thumb-icon" /></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="card-eyebrow">{c.category}</span>
-                  {c.visibility === 'PRIVATE' && <Tag variant="private">Private 🔒</Tag>}
+                <div className="thumb" style={{ background: categoryGradient(c.category) }}>
+                  <Icon name="book-open" size={30} className="thumb-icon" />
+                  {c.visibility === 'PRIVATE' && (
+                    <span className="thumb-badge"><Icon name="lock" size={10} color="#fff" style={{ marginRight: 3 }} />Private</span>
+                  )}
                 </div>
-                <h3>{c.title}</h3>
-                <div className="card-footer">
-                  <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}
-                    onClick={(ev) => { ev.stopPropagation(); navigate(`/learn/courses/${c.courseId ?? c.id}`); }}>
-                    {c.visibility === 'PRIVATE' ? 'Request access' : 'Enrol'}
-                  </button>
+                <div className="card-body">
+                  <div className="card-eyebrow">{c.category || 'General'}</div>
+                  <h3>{c.title}</h3>
+                  <div className="card-footer">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={(ev) => { ev.stopPropagation(); navigate(`/learn/courses/${c.courseId ?? c.id}`); }}
+                    >
+                      {c.visibility === 'PRIVATE' ? 'Request access' : 'View course'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

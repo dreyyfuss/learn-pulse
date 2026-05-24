@@ -25,12 +25,12 @@ export default function AdminOverview() {
   const rate = e.completionRate != null ? `${e.completionRate}%` : '—';
 
   const kpis = [
-    { label: 'Total learners',           value: loading ? '—' : (u.byRole?.LEARNER   != null ? String(u.byRole.LEARNER)   : '—') },
-    { label: 'Total instructors',        value: loading ? '—' : (u.byRole?.INSTRUCTOR != null ? String(u.byRole.INSTRUCTOR) : '—') },
-    { label: 'Total courses',            value: loading ? '—' : (c.total             != null ? String(c.total)             : '—') },
-    { label: 'Total enrolments',         value: loading ? '—' : (e.total             != null ? String(e.total)             : '—') },
-    { label: 'Completions',              value: loading ? '—' : (e.completed         != null ? String(e.completed)         : '—') },
-    { label: 'Platform completion rate', value: loading ? '—' : rate },
+    { label: 'Total learners',           value: loading ? '—' : (u.byRole?.LEARNER   != null ? String(u.byRole.LEARNER)   : '—'), variant: 'indigo' },
+    { label: 'Total instructors',        value: loading ? '—' : (u.byRole?.INSTRUCTOR != null ? String(u.byRole.INSTRUCTOR) : '—'), variant: 'teal'  },
+    { label: 'Total courses',            value: loading ? '—' : (c.total             != null ? String(c.total)             : '—'), variant: 'coral'  },
+    { label: 'Total enrolments',         value: loading ? '—' : (e.total             != null ? String(e.total)             : '—'), variant: 'indigo' },
+    { label: 'Completions',              value: loading ? '—' : (e.completed         != null ? String(e.completed)         : '—'), variant: 'green'  },
+    { label: 'Platform completion rate', value: loading ? '—' : rate,                                                               variant: 'green'  },
   ];
 
   return (

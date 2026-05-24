@@ -31,11 +31,19 @@ create module.unlocked         6  $MS_30_DAYS
 create course.completed        6  $MS_90_DAYS
 create certificate.generated   6  $MS_90_DAYS
 
+# AI course builder topics
+create course.generation.requested   3  $MS_30_DAYS
+create course.generation.completed   3  $MS_30_DAYS
+create course.generation.failed      3  $MS_30_DAYS
+
 # Dead-letter queues
-create course.published.dlq         1  $MS_30_DAYS
-create user.enrolled.dlq            1  $MS_30_DAYS
-create module.unlocked.dlq          1  $MS_30_DAYS
-create course.completed.dlq         1  $MS_90_DAYS
-create certificate.generated.dlq    1  $MS_90_DAYS
+create course.published.dlq              1  $MS_30_DAYS
+create user.enrolled.dlq                 1  $MS_30_DAYS
+create module.unlocked.dlq               1  $MS_30_DAYS
+create course.completed.dlq              1  $MS_90_DAYS
+create certificate.generated.dlq         1  $MS_90_DAYS
+create course.generation.requested.dlq   1  $MS_30_DAYS
+create course.generation.completed.dlq   1  $MS_30_DAYS
+create course.generation.failed.dlq      1  $MS_30_DAYS
 
 echo "All topics ready."

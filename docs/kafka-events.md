@@ -1,5 +1,5 @@
 # LearnPulse — Kafka Event Catalogue
-**Version:** 1.0
+**Version:** 1.1
 **Companion to:** `PRD.md` (§6)
 **Broker:** Apache Kafka (single cluster — dev: local Docker; prod: managed)
 
@@ -7,15 +7,18 @@
 
 ## 1. Overview
 
-LearnPulse uses Kafka as its single async backbone. There are **five** topics. The Course Service and Certificate Service are the producers; consumers are split between the User Service (email), the Certificate Service (certificate generation), and the FastAPI AI service (indexing).
+LearnPulse uses Kafka as its single async backbone. There are **eight** topics. The Course Service and Certificate Service are the producers for domain events; the FastAPI AI Service is both a consumer (course generation requests) and a producer (generation results). Consumers are split between the User Service (email), the Certificate Service (certificate generation), the Course Service (generation results), and the FastAPI AI service (indexing + generation).
 
 | Topic | Producer | Consumer Group(s) | Purpose |
 |---|---|---|---|
-| `course.published` | Spring Boot | `ai-service-indexer` (FastAPI) | Build per-course RAG knowledge base |
-| `user.enrolled` | Spring Boot | `email-service` (Spring Boot) | Send welcome email |
-| `module.unlocked` | Spring Boot | `email-service` (Spring Boot) | Send "next module ready" email |
-| `course.completed` | Spring Boot | `certificate-service` (Certificate Service — separate app) | Generate PDF + persist certificate |
-| `certificate.generated` | Certificate Service | `email-service` (User Service) | Send certificate delivery email |
+| `course.published` | Course Service (Spring Boot) | `ai-service-indexer` (FastAPI) | Build per-course RAG knowledge base |
+| `user.enrolled` | Course Service (Spring Boot) | `email-service` (User Service) | Send welcome email |
+| `module.unlocked` | Course Service (Spring Boot) | `email-service` (User Service) | Send "next module ready" email |
+| `course.completed` | Course Service (Spring Boot) | `certificate-service` (Certificate Service) | Generate PDF + persist certificate |
+| `certificate.generated` | Certificate Service (Spring Boot) | `email-service` (User Service) | Send certificate delivery email |
+| `course.generation.requested` | Course Service (Spring Boot) | `ai-service-course-generator` (FastAPI) | Trigger async AI course generation |
+| `course.generation.completed` | FastAPI AI Service | `course-service-ai-consumer` (Course Service) | Persist generated course, modules, lessons, and quizzes |
+| `course.generation.failed` | FastAPI AI Service | `course-service-ai-consumer` (Course Service) | Mark generation job as failed |
 
 ---
 
@@ -28,6 +31,9 @@ LearnPulse uses Kafka as its single async backbone. There are **five** topics. T
 | `module.unlocked` | 6 | 3 | 30 days | `delete` | `userId` |
 | `course.completed` | 6 | 3 | 90 days | `delete` | `enrolmentId` |
 | `certificate.generated` | 6 | 3 | 90 days | `delete` | `certificateId` |
+| `course.generation.requested` | 3 | 3 | 30 days | `delete` | `jobId` |
+| `course.generation.completed` | 3 | 3 | 30 days | `delete` | `jobId` |
+| `course.generation.failed` | 3 | 3 | 30 days | `delete` | `jobId` |
 
 > **Why `userId` / `enrolmentId` keys?** Per-key ordering in Kafka is per-partition. Keying by user keeps that user's events ordered (e.g. `user.enrolled` before `module.unlocked`), which simplifies consumer logic. Keying `course.completed` by `enrolmentId` gives one-partition ordering per (user, course) pair so retries land in the same partition and consumer.
 
@@ -253,6 +259,132 @@ Manual offset commit is performed only after the DB transaction commits successf
 
 ---
 
+### 4.6 `course.generation.requested`
+
+**Trigger:** `POST /api/instructor/courses/generate` succeeds. A `CourseGenerationJob` row is created with `status = PENDING`.
+**Producer:** `CourseGenerationProducer` (Course Service) via the transactional outbox — the event is written to `outbox_events` inside the same transaction that saves the job, then published by the `OutboxPublisher` scheduler.
+**Consumer:** FastAPI `aiokafka` consumer in group `ai-service-course-generator`.
+**Purpose:** Instruct the AI service to run the generation pipeline for this job.
+
+**Payload:**
+```json
+{
+  "eventId":      "uuid-v4",
+  "eventType":    "course.generation.requested",
+  "version":      1,
+  "occurredAt":   "2026-05-22T10:00:00Z",
+  "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+  "instructorId": "550e8400-e29b-41d4-a716-446655440001",
+  "prompt":       "Build a course on REST APIs for beginners, with practical exercises"
+}
+```
+
+**Consumer behaviour (FastAPI):**
+1. Deserialise and validate event.
+2. Run `CourseGenerationPipeline.generate(event)`:
+   - **Step 1 (outline):** synchronous LLM call (`ChatGroq`, `llama-3.3-70b`) — produces a `CourseOutline` with 3–5 modules, each containing 3–5 lessons (title, description, orderIndex).
+   - **Step 2 (content + quizzes):** parallel `llm.abatch()` — for every lesson simultaneously, generate Markdown article content (400–800 words) and a JSON quiz (3–5 questions, MCQ / TRUE_FALSE mix).
+3. On success → publish `course.generation.completed` (§4.7) and commit offset.
+4. On any exception → publish `course.generation.failed` (§4.8) with the exception message, then commit offset.
+
+---
+
+### 4.7 `course.generation.completed`
+
+**Trigger:** `CourseGenerationPipeline` finishes successfully.
+**Producer:** `GenerationEventProducer` (FastAPI AI Service) — published directly via `AIOKafkaProducer` (no outbox; the AI service has no relational DB).
+**Consumer:** Spring Boot `CourseGenerationConsumer` in group `course-service-ai-consumer` — uses a dedicated `aiResultsListenerContainerFactory` with `AckMode.MANUAL_IMMEDIATE`.
+**Purpose:** Persist the full generated course structure to the database and mark the job complete.
+
+**Payload:**
+```json
+{
+  "eventId":      "uuid-v4",
+  "eventType":    "course.generation.completed",
+  "version":      1,
+  "occurredAt":   "2026-05-22T10:04:30Z",
+  "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+  "instructorId": "550e8400-e29b-41d4-a716-446655440001",
+  "course": {
+    "title":       "REST APIs for Beginners",
+    "description": "A practical introduction to building RESTful web services.",
+    "category":    "Backend Development",
+    "modules": [
+      {
+        "title":       "Module 1: Foundations",
+        "description": "Core REST concepts and HTTP basics.",
+        "orderIndex":  1,
+        "lessons": [
+          {
+            "title":       "What is REST?",
+            "description": "Origins and constraints of the REST architectural style.",
+            "orderIndex":  1,
+            "content":     "# What is REST?\n\nREST (Representational State Transfer)...",
+            "quiz": {
+              "title":        "Quiz: What is REST?",
+              "passingScore": 70,
+              "questions": [
+                {
+                  "questionText": "Which HTTP method is idempotent but not safe?",
+                  "questionType": "MCQ",
+                  "orderIndex":   1,
+                  "options": [
+                    { "optionText": "GET",    "isCorrect": false, "orderIndex": 1 },
+                    { "optionText": "PUT",    "isCorrect": true,  "orderIndex": 2 },
+                    { "optionText": "POST",   "isCorrect": false, "orderIndex": 3 },
+                    { "optionText": "DELETE", "isCorrect": false, "orderIndex": 4 }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Consumer behaviour (Course Service):**
+1. Look up `CourseGenerationJob` by `jobId`; throw if not found.
+2. Build and persist the full entity graph in one transaction: `Course` → `Module`s → `Lesson`s + `Quiz`es (with `QuizQuestion`s and `QuizOption`s).
+3. For each lesson with non-blank `content`, upload the Markdown to S3 at key `lessons/{lessonId}/content.md` and set `lessons.content_key`.
+4. Set `job.status = COMPLETED`, `job.course_id = <new courseId>`.
+5. Ack the message.
+
+> **No outbox / idempotency log:** Each job produces exactly one completed or failed event. If redelivery occurs, `buildCourse` will attempt to insert a duplicate `Course`; a retry guard on `job.status` (skip if already COMPLETED) would be a defensive improvement.
+
+---
+
+### 4.8 `course.generation.failed`
+
+**Trigger:** Any unhandled exception during `CourseGenerationPipeline.generate()` in the AI service.
+**Producer:** `GenerationEventProducer` (FastAPI AI Service).
+**Consumer:** Spring Boot `CourseGenerationConsumer` in group `course-service-ai-consumer`.
+**Purpose:** Surface the failure to the instructor via the job-status polling endpoint.
+
+**Payload:**
+```json
+{
+  "eventId":      "uuid-v4",
+  "eventType":    "course.generation.failed",
+  "version":      1,
+  "occurredAt":   "2026-05-22T10:01:15Z",
+  "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+  "instructorId": "550e8400-e29b-41d4-a716-446655440001",
+  "reason":       "LLM returned malformed JSON after 3 retries"
+}
+```
+
+**Consumer behaviour (Course Service):**
+1. Look up `CourseGenerationJob` by `jobId`.
+2. Set `job.status = FAILED`, `job.error_message = reason`.
+3. Ack the message.
+
+The `GET /api/instructor/courses/generate/{jobId}` endpoint returns this `errorMessage` to the frontend, which displays it inside the `AiGenerateModal`.
+
+---
+
 ## 5. Producer Patterns
 
 ### 5.1 Transactional Outbox (Recommended)
@@ -300,6 +432,9 @@ Each consumer group has a corresponding `<topic>.dlq` topic. After `N=5` failed 
 | `module.unlocked` | `module.unlocked.dlq` |
 | `certificate.generated` | `certificate.generated.dlq` |
 | `course.published` | `course.published.dlq` |
+| `course.generation.requested` | `course.generation.requested.dlq` |
+| `course.generation.completed` | `course.generation.completed.dlq` |
+| `course.generation.failed` | `course.generation.failed.dlq` |
 
 ---
 
@@ -318,7 +453,7 @@ Each consumer group has a corresponding `<topic>.dlq` topic. After `N=5` failed 
 - 1 Kafka broker (`KRaft` mode, no Zookeeper).
 - Kafka UI on `http://localhost:8085` for topic inspection.
 
-`infrastructure/kafka/topics.sh` runs at first compose-up and creates all five topics + DLQs with the configs from §2.
+`infrastructure/kafka/topics.sh` runs at first compose-up and creates all eight topics + DLQs with the configs from §2.
 
 ---
 

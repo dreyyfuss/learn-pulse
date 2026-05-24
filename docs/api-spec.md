@@ -1,5 +1,5 @@
 # LearnPulse — REST API Specification
-**Version:** 1.1
+**Version:** 1.3
 **Companion to:** `PRD.md`
 **Base URL (dev):** `http://localhost` (all traffic enters via Traefik on port 80)
 **Auth:** `Authorization: Bearer <JWT>` on every endpoint marked Auth ≠ `Public`.
@@ -252,6 +252,72 @@ List endpoints accept `?page=0&size=20&sort=field,asc|desc`. Responses include:
 
 ---
 
+## 4a. AI Course Generation
+
+> These two endpoints implement the async generation flow. The instructor submits a prompt, receives a `jobId`, and polls until the job reaches a terminal state. Generation runs over a Kafka pipeline (§4.6–4.8 of `kafka-events.md`) and typically completes in 2–4 minutes.
+
+### POST `/api/instructor/courses/generate`
+**Auth:** `INSTRUCTOR`
+**Body:**
+```json
+{ "prompt": "Build a beginner course on REST APIs with practical exercises" }
+```
+- `prompt`: 10–2000 characters. Required.
+
+**Response 202:**
+```json
+{
+  "status": "success",
+  "data": {
+    "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+    "status":       "PENDING",
+    "errorMessage": null,
+    "courseId":     null
+  },
+  "message": "Course generation started"
+}
+```
+
+**Behaviour:**
+1. Validates `prompt` length (400 `VALIDATION_ERROR` if outside 10–2000 chars).
+2. Creates a `CourseGenerationJob` row with `status = PENDING`.
+3. Emits `course.generation.requested` via the transactional outbox.
+4. Returns immediately — generation is fully asynchronous.
+
+**Errors:** `400 VALIDATION_ERROR`.
+
+---
+
+### GET `/api/instructor/courses/generate/{jobId}`
+**Auth:** `INSTRUCTOR` (owner of the job)
+**Response 200:**
+```json
+{
+  "status": "success",
+  "data": {
+    "jobId":        "550e8400-e29b-41d4-a716-446655440010",
+    "status":       "COMPLETED",
+    "errorMessage": null,
+    "courseId":     "550e8400-e29b-41d4-a716-446655440099"
+  },
+  "message": "OK"
+}
+```
+
+**`status` values:**
+
+| Value | Meaning |
+|---|---|
+| `PENDING` | Job created; AI pipeline has not yet finished |
+| `COMPLETED` | Course, modules, lessons, and quizzes persisted; `courseId` is set |
+| `FAILED` | Pipeline error; `errorMessage` describes the cause |
+
+**Polling contract:** The frontend polls every **3 seconds** with a **180-second** client-side timeout. On `COMPLETED`, navigate to `/teach/courses/{courseId}/edit`. On `FAILED`, display `errorMessage`. On timeout, show a soft message ("Check My Courses later — your course will appear when ready").
+
+**Errors:** `404` if `jobId` does not exist or belongs to a different instructor.
+
+---
+
 ## 5. Modules & Lessons
 
 > All write endpoints in this section return `409 COURSE_LOCKED` if the course has any started enrolment.
@@ -332,6 +398,31 @@ List endpoints accept `?page=0&size=20&sort=field,asc|desc`. Responses include:
 ### GET `/api/enrolments/{id}/progress`
 **Auth:** `LEARNER` (owner) or `INSTRUCTOR` (course owner) or `ADMIN`.
 **Response:** Module/lesson tree annotated with `completed`, `unlocked`, `currentLessonId`.
+
+---
+
+## 7a. Streaks
+
+### GET `/api/learner/streak`
+**Auth:** `LEARNER`
+**Routing:** Handled by Course Service (caught by `/api/*` rule).
+**Response 200:**
+```json
+{
+  "status": "success",
+  "data": {
+    "currentStreak":    5,
+    "lastActivityDate": "2026-05-22"
+  }
+}
+```
+**Behaviour:** Returns the caller's current consecutive-day learning streak. A streak increments when a lesson is completed or a quiz attempt is submitted on a calendar day (UTC) that immediately follows the previous activity date. A gap of more than one day resets `currentStreak` to 1 on the next activity. `currentStreak` is `0` and `lastActivityDate` is `null` for learners with no recorded activity.
+
+**Update triggers (in-process, no Kafka):**
+- `POST /api/lessons/{lessonId}/complete` — increments on the new-completion path only (idempotent for already-completed lessons).
+- `POST /api/quizzes/{quizId}/attempts` — increments on every submission, pass or fail.
+
+**Errors:** `401` if unauthenticated; `403 FORBIDDEN_ROLE` if caller is not a `LEARNER`.
 
 ---
 

@@ -5,6 +5,7 @@ import Tag from '../../components/Tag';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import LessonContentUpload from '../../components/LessonContentUpload';
+import QuizEditor from '../../components/QuizEditor';
 import courseService from '../../services/courseService';
 import { getErrorMessage } from '../../utils/errorMessages';
 
@@ -22,26 +23,31 @@ function EditCourseBuilder({ courseId }) {
 
   // Editor state
   const [courseTitle, setCourseTitle] = useState('');
-  const [activeLesson, setActiveLesson] = useState(null); // { lesson, moduleId }
-  const [lessonForm, setLessonForm] = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
+  const [courseVisibility, setCourseVisibility] = useState('PUBLIC');
+  const [activeLesson, setActiveLesson]       = useState(null); // { lesson, moduleId }
+  const [activeQuiz, setActiveQuiz]           = useState(null); // { quiz, moduleId }
+  const [lessonForm, setLessonForm]           = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
+  const [newContentUploaded, setNewContentUploaded] = useState(false);
 
   // Inline-add state
-  const [addingModule, setAddingModule] = useState(false);
-  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [addingModule, setAddingModule]               = useState(false);
+  const [newModuleTitle, setNewModuleTitle]            = useState('');
   const [addingLessonModuleId, setAddingLessonModuleId] = useState(null);
-  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonTitle, setNewLessonTitle]            = useState('');
+  const [addingQuizModuleId, setAddingQuizModuleId]   = useState(null);
+  const [newQuizTitle, setNewQuizTitle]               = useState('');
 
   // UI state
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]         = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [publishing, setPublishing] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast]           = useState('');
   const [enrolmentCode, setEnrolmentCode] = useState(null);
 
   // DnD refs
   const dragModuleIdx = useRef(null);
-  const dragLesson    = useRef({ moduleId: null, idx: null });
+  const dragItem      = useRef({ moduleId: null, idx: null });
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -51,6 +57,7 @@ function EditCourseBuilder({ courseId }) {
       .then(data => {
         setCourse(data);
         setCourseTitle(data.title);
+        setCourseVisibility(data.visibility ?? 'PUBLIC');
         setModules(data.modules ?? []);
         if (data.visibility === 'PRIVATE') {
           courseService.getEnrolmentCode(courseId)
@@ -80,6 +87,18 @@ function EditCourseBuilder({ courseId }) {
     }
   };
 
+  // ── Save visibility ──
+  const saveVisibility = async (value) => {
+    setCourseVisibility(value);
+    try {
+      const updated = await courseService.update(courseId, { visibility: value });
+      setCourse(prev => ({ ...prev, ...updated }));
+      showToast(value === 'PUBLIC' ? 'Course set to public.' : 'Course set to private.');
+    } catch (err) {
+      showToast(getErrorMessage(err));
+    }
+  };
+
   // ── Publish ──
   const publish = async () => {
     setPublishing(true);
@@ -105,7 +124,7 @@ function EditCourseBuilder({ courseId }) {
         title: newModuleTitle.trim(),
         orderIndex: modules.length,
       });
-      setModules(prev => [...prev, mod]);
+      setModules(prev => [...prev, { ...mod, quizzes: [] }]);
       setNewModuleTitle('');
       setAddingModule(false);
     } catch (err) {
@@ -119,6 +138,7 @@ function EditCourseBuilder({ courseId }) {
       await courseService.deleteModule(courseId, moduleId);
       setModules(prev => prev.filter(m => m.id !== moduleId));
       if (activeLesson?.moduleId === moduleId) setActiveLesson(null);
+      if (activeQuiz?.moduleId === moduleId) setActiveQuiz(null);
     } catch (err) {
       showToast(getErrorMessage(err));
     }
@@ -129,11 +149,12 @@ function EditCourseBuilder({ courseId }) {
     e?.preventDefault();
     if (!newLessonTitle.trim()) return;
     const mod = modules.find(m => m.id === moduleId);
+    const itemCount = (mod?.lessons?.length ?? 0) + (mod?.quizzes?.length ?? 0);
     try {
       const lesson = await courseService.createLesson(courseId, moduleId, {
         title: newLessonTitle.trim(),
         contentType: 'VIDEO',
-        orderIndex: mod ? mod.lessons.length : 0,
+        orderIndex: itemCount,
       });
       setModules(prev => prev.map(m =>
         m.id === moduleId ? { ...m, lessons: [...(m.lessons ?? []), lesson] } : m
@@ -163,10 +184,17 @@ function EditCourseBuilder({ courseId }) {
     if (!activeLesson) return;
     const { lesson, moduleId } = activeLesson;
     setSaving(true);
+    const contentTypeChanged = lessonForm.contentType !== lesson.contentType;
+    const resolvedContentType = (contentTypeChanged && !newContentUploaded)
+      ? lesson.contentType
+      : lessonForm.contentType;
+    if (contentTypeChanged && !newContentUploaded) {
+      setLessonForm(p => ({ ...p, contentType: lesson.contentType }));
+    }
     try {
       const body = {
-        title:       lessonForm.title       || null,
-        contentType: lessonForm.contentType || null,
+        title:       lessonForm.title    || null,
+        contentType: resolvedContentType || null,
         contentUrl:  lessonForm.contentUrl  || null,
         description: lessonForm.description || null,
       };
@@ -182,6 +210,30 @@ function EditCourseBuilder({ courseId }) {
       showToast(getErrorMessage(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Add quiz ──
+  const submitAddQuiz = async (e, moduleId) => {
+    e?.preventDefault();
+    if (!newQuizTitle.trim()) return;
+    const mod = modules.find(m => m.id === moduleId);
+    const itemCount = (mod?.lessons?.length ?? 0) + (mod?.quizzes?.length ?? 0);
+    try {
+      const quiz = await courseService.createQuiz(courseId, moduleId, {
+        title: newQuizTitle.trim(),
+        orderIndex: itemCount,
+      });
+      const quizData = quiz.data ?? quiz;
+      setModules(prev => prev.map(m =>
+        m.id === moduleId ? { ...m, quizzes: [...(m.quizzes ?? []), quizData] } : m
+      ));
+      setNewQuizTitle('');
+      setAddingQuizModuleId(null);
+      setActiveQuiz({ quiz: quizData, moduleId });
+      setActiveLesson(null);
+    } catch (err) {
+      showToast(getErrorMessage(err));
     }
   };
 
@@ -207,39 +259,54 @@ function EditCourseBuilder({ courseId }) {
     }
   };
 
-  // ── DnD — lessons ──
-  const onLessonDragStart = (moduleId, idx) => { dragLesson.current = { moduleId, idx }; };
-  const onLessonDragOver  = (e) => e.preventDefault();
-  const onLessonDrop = async (targetModuleId, targetIdx) => {
-    const { moduleId: fromModuleId, idx: fromIdx } = dragLesson.current;
-    if (fromModuleId !== targetModuleId || fromIdx === targetIdx) return;
+  // ── DnD — items (lessons + quizzes) ──
+  const onItemDragStart = (moduleId, idx) => { dragItem.current = { moduleId, idx }; };
+  const onItemDragOver  = (e) => e.preventDefault();
+  const onItemDrop = async (targetModuleId, targetIIdx) => {
+    const { moduleId: fromModuleId, idx: fromIIdx } = dragItem.current;
+    if (fromModuleId !== targetModuleId || fromIIdx === targetIIdx) return;
     const mIdx = modules.findIndex(m => m.id === targetModuleId);
-    const lessons = [...modules[mIdx].lessons];
-    const [moved] = lessons.splice(fromIdx, 1);
-    lessons.splice(targetIdx, 0, moved);
-    const ordered = lessons.map((l, i) => ({ ...l, orderIndex: i }));
-    setModules(prev => prev.map((m, i) => i === mIdx ? { ...m, lessons: ordered } : m));
-    dragLesson.current = { moduleId: null, idx: null };
+    const mod = modules[mIdx];
+    const merged = [
+      ...(mod.lessons ?? []).map(l => ({ ...l, _type: 'lesson' })),
+      ...(mod.quizzes ?? []).map(q => ({ ...q, _type: 'quiz' })),
+    ].sort((a, b) => a.orderIndex - b.orderIndex);
+    const [moved] = merged.splice(fromIIdx, 1);
+    merged.splice(targetIIdx, 0, moved);
+    const reordered = merged.map((item, i) => ({ ...item, orderIndex: i }));
+    const newLessons = reordered.filter(item => item._type === 'lesson');
+    const newQuizzes = reordered.filter(item => item._type === 'quiz');
+    setModules(prev => prev.map((m, i) => i === mIdx ? { ...m, lessons: newLessons, quizzes: newQuizzes } : m));
+    dragItem.current = { moduleId: null, idx: null };
     try {
-      await courseService.reorderLessons(
-        courseId,
-        targetModuleId,
-        ordered.map(l => ({ id: l.id, orderIndex: l.orderIndex }))
-      );
+      const promises = [];
+      if (newLessons.length > 0)
+        promises.push(courseService.reorderLessons(courseId, targetModuleId, newLessons.map(l => ({ id: l.id, orderIndex: l.orderIndex }))));
+      if (newQuizzes.length > 0)
+        promises.push(courseService.reorderQuizzes(courseId, targetModuleId, newQuizzes.map(q => ({ id: q.id, orderIndex: q.orderIndex }))));
+      await Promise.all(promises);
     } catch {
-      showToast('Failed to save lesson order.');
+      showToast('Failed to save order.');
     }
   };
 
   // ── Select lesson ──
   const selectLesson = (lesson, moduleId) => {
     setActiveLesson({ lesson, moduleId });
+    setActiveQuiz(null);
+    setNewContentUploaded(false);
     setLessonForm({
       title:       lesson.title       ?? '',
       contentType: lesson.contentType ?? 'VIDEO',
       contentUrl:  lesson.contentUrl  ?? '',
       description: lesson.description ?? '',
     });
+  };
+
+  // ── Select quiz ──
+  const selectQuiz = (quiz, moduleId) => {
+    setActiveQuiz({ quiz, moduleId });
+    setActiveLesson(null);
   };
 
   // ── Mark lesson as having content after upload (optimistic update) ──
@@ -253,6 +320,7 @@ function EditCourseBuilder({ courseId }) {
         : m
     ));
     setActiveLesson({ lesson: updated, moduleId });
+    setNewContentUploaded(true);
   };
 
   // ── Render states ──
@@ -276,6 +344,10 @@ function EditCourseBuilder({ courseId }) {
 
       {/* Top bar */}
       <div className="builder-topbar">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/teach/courses')} style={{ flexShrink: 0 }}>
+          <Icon name="chevron-left" size={15} /> My courses
+        </button>
+        <div className="topbar-sep" />
         {isLocked
           ? <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, color: 'var(--ink)', flex: 1 }}>{courseTitle}</span>
           : <input
@@ -286,35 +358,46 @@ function EditCourseBuilder({ courseId }) {
             />
         }
         <Tag variant={statusVariant}>{statusLabel}</Tag>
-        {enrolmentCode && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
-            <Icon name="key" size={13} color="var(--ink-3)" />
-            <span style={{ color: 'var(--ink-2)', userSelect: 'all', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{enrolmentCode}</span>
-            <button
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--ink-3)', display: 'flex', alignItems: 'center' }}
-              title="Copy enrolment code"
-              onClick={() => { navigator.clipboard.writeText(enrolmentCode); showToast('Enrolment code copied.'); }}
+        <div className="topbar-actions">
+          {!isLocked && (
+            <select
+              className="input select"
+              style={{ fontSize: 13, padding: '4px 10px', height: 32, minWidth: 110 }}
+              value={courseVisibility}
+              onChange={e => saveVisibility(e.target.value)}
             >
-              <Icon name="copy" size={13} />
-            </button>
-          </div>
-        )}
-        {!isLocked && !isPublished && (
-          <>
-            <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={saving}>
-              {saving ? 'Saving…' : 'Save draft'}
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => { setPublishError(''); setShowPublish(true); }}
-            >
-              Publish
-            </button>
-          </>
-        )}
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/teach/courses')}>
-          ← My courses
-        </button>
+              <option value="PUBLIC">Public</option>
+              <option value="PRIVATE">Private</option>
+            </select>
+          )}
+          {enrolmentCode && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--paper-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
+              <Icon name="key" size={13} color="var(--ink-3)" />
+              <span style={{ color: 'var(--ink-2)', userSelect: 'all', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{enrolmentCode}</span>
+              <button
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--ink-3)', display: 'flex', alignItems: 'center' }}
+                title="Copy enrolment code"
+                onClick={() => { navigator.clipboard.writeText(enrolmentCode); showToast('Enrolment code copied.'); }}
+              >
+                <Icon name="copy" size={13} />
+              </button>
+            </div>
+          )}
+          {!isLocked && !isPublished && (
+            <>
+              <div className="topbar-sep" />
+              <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={saving}>
+                {saving ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => { setPublishError(''); setShowPublish(true); }}
+              >
+                Publish
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Builder shell */}
@@ -324,98 +407,144 @@ function EditCourseBuilder({ courseId }) {
         <div className="builder-tree">
           <h4>Modules &amp; lessons</h4>
 
-          {modules.map((m, mIdx) => (
-            <div
-              key={m.id}
-              draggable={!isLocked}
-              onDragStart={() => onModuleDragStart(mIdx)}
-              onDragOver={onModuleDragOver}
-              onDrop={() => onModuleDrop(mIdx)}
-            >
-              {/* Module row */}
-              <div
-                className="tree-module active"
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                {!isLocked && (
-                  <span className="drag-handle" style={{ cursor: 'grab', flexShrink: 0 }}>
-                    <Icon name="grip-vertical" size={13} />
-                  </span>
-                )}
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.title}
-                </span>
-                {!isLocked && (
-                  <button
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
-                    onClick={() => deleteModule(m.id)}
-                    title="Delete module"
-                  >
-                    <Icon name="trash-2" size={13} />
-                  </button>
-                )}
-              </div>
+          {modules.map((m, mIdx) => {
+            // Merge lessons + quizzes sorted by orderIndex for display
+            const items = [
+              ...(m.lessons ?? []).map(l => ({ ...l, _type: 'lesson' })),
+              ...(m.quizzes ?? []).map(q => ({ ...q, _type: 'quiz' })),
+            ].sort((a, b) => a.orderIndex - b.orderIndex);
 
-              {/* Lesson rows */}
-              {(m.lessons ?? []).map((l, lIdx) => (
+            return (
+              <div
+                key={m.id}
+                draggable={!isLocked}
+                onDragStart={() => onModuleDragStart(mIdx)}
+                onDragOver={onModuleDragOver}
+                onDrop={() => onModuleDrop(mIdx)}
+              >
+                {/* Module row */}
                 <div
-                  key={l.id}
-                  className={`tree-lesson${activeLesson?.lesson?.id === l.id ? ' active' : ''}`}
-                  draggable={!isLocked}
-                  onDragStart={() => onLessonDragStart(m.id, lIdx)}
-                  onDragOver={onLessonDragOver}
-                  onDrop={() => onLessonDrop(m.id, lIdx)}
-                  onClick={() => selectLesson(l, m.id)}
-                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                  className="tree-module active"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
                   {!isLocked && (
-                    <span className="drag-handle" style={{ flexShrink: 0 }}>
+                    <span className="drag-handle" style={{ cursor: 'grab', flexShrink: 0 }}>
                       <Icon name="grip-vertical" size={13} />
                     </span>
                   )}
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
-                    {l.title}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {m.title}
                   </span>
                   {!isLocked && (
                     <button
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
-                      onClick={(e) => { e.stopPropagation(); deleteLesson(m.id, l.id); }}
-                      title="Delete lesson"
+                      onClick={() => deleteModule(m.id)}
+                      title="Delete module"
                     >
-                      <Icon name="trash-2" size={11} />
+                      <Icon name="trash-2" size={13} />
                     </button>
                   )}
                 </div>
-              ))}
 
-              {/* Add lesson */}
-              {!isLocked && addingLessonModuleId === m.id ? (
-                <form
-                  onSubmit={(e) => submitAddLesson(e, m.id)}
-                  style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
-                >
-                  <input
-                    className="input"
-                    style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
-                    value={newLessonTitle}
-                    onChange={e => setNewLessonTitle(e.target.value)}
-                    placeholder="Lesson title"
-                    autoFocus
-                    onBlur={() => { if (!newLessonTitle.trim()) setAddingLessonModuleId(null); }}
-                  />
-                  <button type="submit" className="btn btn-primary btn-xs">Add</button>
-                </form>
-              ) : !isLocked && (
-                <button
-                  className="btn btn-secondary btn-xs"
-                  style={{ marginLeft: 24, marginTop: 4, marginBottom: 4 }}
-                  onClick={() => { setAddingLessonModuleId(m.id); setNewLessonTitle(''); }}
-                >
-                  <Icon name="plus" size={12} /> Add lesson
-                </button>
-              )}
-            </div>
-          ))}
+                {/* Lesson + Quiz rows (merged, sorted by orderIndex) */}
+                {items.map((item, iIdx) => {
+                  const isLesson = item._type === 'lesson';
+                  const isActive = isLesson
+                    ? activeLesson?.lesson?.id === item.id
+                    : activeQuiz?.quiz?.id === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`tree-lesson${isActive ? ' active' : ''}`}
+                      draggable={!isLocked}
+                      onDragStart={(e) => { e.stopPropagation(); onItemDragStart(m.id, iIdx); }}
+                      onDragOver={onItemDragOver}
+                      onDrop={(e) => { e.stopPropagation(); onItemDrop(m.id, iIdx); }}
+                      onClick={() => isLesson ? selectLesson(item, m.id) : selectQuiz(item, m.id)}
+                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      {!isLocked && (
+                        <span className="drag-handle" style={{ flexShrink: 0 }}>
+                          <Icon name="grip-vertical" size={13} />
+                        </span>
+                      )}
+                      {!isLesson && (
+                        <span style={{ flexShrink: 0, color: 'var(--ink-4)', display: 'flex', alignItems: 'center' }}>
+                          <Icon name="help-circle" size={13} />
+                        </span>
+                      )}
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {item.title}
+                      </span>
+                      {!isLocked && (
+                        <button
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: 2, flexShrink: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            isLesson ? deleteLesson(m.id, item.id) : handleDeleteQuiz(m.id, item.id);
+                          }}
+                          title={isLesson ? 'Delete lesson' : 'Delete quiz'}
+                        >
+                          <Icon name="trash-2" size={11} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add lesson inline form */}
+                {!isLocked && addingLessonModuleId === m.id ? (
+                  <form
+                    onSubmit={(e) => submitAddLesson(e, m.id)}
+                    style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
+                  >
+                    <input
+                      className="input"
+                      style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
+                      value={newLessonTitle}
+                      onChange={e => setNewLessonTitle(e.target.value)}
+                      placeholder="Lesson title"
+                      autoFocus
+                      onBlur={() => { if (!newLessonTitle.trim()) setAddingLessonModuleId(null); }}
+                    />
+                    <button type="submit" className="btn btn-primary btn-xs">Add</button>
+                  </form>
+                ) : !isLocked && addingQuizModuleId === m.id ? (
+                  <form
+                    onSubmit={(e) => submitAddQuiz(e, m.id)}
+                    style={{ padding: '4px 8px 4px 24px', display: 'flex', gap: 6 }}
+                  >
+                    <input
+                      className="input"
+                      style={{ fontSize: 13, padding: '4px 8px', flex: 1 }}
+                      value={newQuizTitle}
+                      onChange={e => setNewQuizTitle(e.target.value)}
+                      placeholder="Quiz title"
+                      autoFocus
+                      onBlur={() => { if (!newQuizTitle.trim()) setAddingQuizModuleId(null); }}
+                    />
+                    <button type="submit" className="btn btn-primary btn-xs">Add</button>
+                  </form>
+                ) : !isLocked && (
+                  <div style={{ display: 'flex', gap: 4, marginLeft: 24, marginTop: 4, marginBottom: 4 }}>
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => { setAddingLessonModuleId(m.id); setAddingQuizModuleId(null); setNewLessonTitle(''); }}
+                    >
+                      <Icon name="plus" size={12} /> Lesson
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => { setAddingQuizModuleId(m.id); setAddingLessonModuleId(null); setNewQuizTitle(''); }}
+                    >
+                      <Icon name="help-circle" size={12} /> Quiz
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Add module */}
           {!isLocked && (addingModule ? (
@@ -442,8 +571,9 @@ function EditCourseBuilder({ courseId }) {
           ))}
         </div>
 
-        {/* Right — lesson editor */}
+        {/* Right — editor panel */}
         <div className="builder-editor">
+          <div className="builder-editor-inner">
           {isLocked && (
             <div className="locked-banner">
               <Icon name="lock" size={16} />
@@ -451,83 +581,136 @@ function EditCourseBuilder({ courseId }) {
             </div>
           )}
 
-          {!activeLesson ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--ink-3)', gap: 12 }}>
-              <Icon name="mouse-pointer-click" size={36} color="var(--ink-4)" />
-              <p style={{ margin: 0, fontSize: 14 }}>
-                {isLocked ? 'Select a lesson to preview it.' : 'Select a lesson to edit, or add a new one.'}
-              </p>
+          {activeQuiz ? (
+            <QuizEditor
+              courseId={courseId}
+              moduleId={activeQuiz.moduleId}
+              quiz={activeQuiz.quiz}
+              isLocked={isLocked}
+              onUpdated={(updatedQuiz) => {
+                setModules(prev => prev.map(m =>
+                  m.id === activeQuiz.moduleId
+                    ? { ...m, quizzes: (m.quizzes ?? []).map(q => q.id === updatedQuiz.id ? updatedQuiz : q) }
+                    : m
+                ));
+                setActiveQuiz({ quiz: updatedQuiz, moduleId: activeQuiz.moduleId });
+              }}
+              onDeleted={() => {
+                setModules(prev => prev.map(m =>
+                  m.id === activeQuiz.moduleId
+                    ? { ...m, quizzes: (m.quizzes ?? []).filter(q => q.id !== activeQuiz.quiz.id) }
+                    : m
+                ));
+                setActiveQuiz(null);
+              }}
+            />
+          ) : !activeLesson ? (
+            <div className="editor-overview">
+              <div>
+                <p className="editor-overview-title">{courseTitle}</p>
+              </div>
+              <div className="editor-overview-stats">
+                <span className="editor-overview-stat">{modules.length} module{modules.length !== 1 ? 's' : ''}</span>
+                <span className="editor-overview-stat">
+                  {modules.reduce((n, m) => n + (m.lessons?.length ?? 0), 0)} lesson{modules.reduce((n, m) => n + (m.lessons?.length ?? 0), 0) !== 1 ? 's' : ''}
+                </span>
+                <span className="editor-overview-stat">
+                  {modules.reduce((n, m) => n + (m.quizzes?.length ?? 0), 0)} quiz{modules.reduce((n, m) => n + (m.quizzes?.length ?? 0), 0) !== 1 ? 'zes' : ''}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Icon name="mouse-pointer-click" size={28} color="var(--ink-5)" />
+                <p className="editor-overview-hint">
+                  {isLocked ? 'Select a lesson or quiz to preview it.' : 'Select a lesson or quiz to edit, or add a new one from the sidebar.'}
+                </p>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="page-eyebrow" style={{ marginBottom: 4 }}>Lesson editor</div>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, letterSpacing: '-0.01em', margin: '0 0 24px' }}>
-                {activeLesson.lesson.title || 'Untitled lesson'}
-              </h2>
-
-              <div className="field">
-                <label>Lesson title</label>
-                <input
-                  className="input"
-                  value={lessonForm.title}
-                  onChange={e => setLessonForm(p => ({ ...p, title: e.target.value }))}
-                  disabled={isLocked}
-                />
-              </div>
-
-              <div className="field">
-                <label>Content type</label>
-                <select
-                  className="input select"
-                  value={lessonForm.contentType}
-                  onChange={e => setLessonForm(p => ({ ...p, contentType: e.target.value }))}
-                  disabled={isLocked}
-                  style={{ maxWidth: 200 }}
-                >
-                  <option value="VIDEO">Video</option>
-                  <option value="DOCUMENT">Document</option>
-                  <option value="ARTICLE">Article</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-
-              {!isLocked && (
-                <LessonContentUpload
-                  courseId={courseId}
-                  moduleId={activeLesson.moduleId}
-                  lessonId={activeLesson.lesson.id}
-                  contentType={lessonForm.contentType}
-                  hasContent={!!activeLesson.lesson.contentKey}
-                  onUploaded={markLessonHasContent}
-                />
-              )}
-
-              <div className="field">
-                <label>Lesson description</label>
-                <textarea
-                  className="input textarea"
-                  value={lessonForm.description}
-                  onChange={e => setLessonForm(p => ({ ...p, description: e.target.value }))}
-                  rows={4}
-                  disabled={isLocked}
-                />
-              </div>
-
-              {!isLocked && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--rule)', paddingTop: 18, marginTop: 8 }}>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => deleteLesson(activeLesson.moduleId, activeLesson.lesson.id)}
-                  >
-                    <Icon name="trash-2" size={14} /> Delete lesson
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={saveLesson} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save lesson'}
-                  </button>
+          ) : (() => {
+            const activeModule = modules.find(m => m.id === activeLesson.moduleId);
+            return (
+              <>
+                <div className="editor-header">
+                  <div className="editor-context">{activeModule?.title} / Lesson</div>
+                  <h2 className="editor-title">{activeLesson.lesson.title || 'Untitled lesson'}</h2>
                 </div>
-              )}
-            </>
-          )}
+
+                <div className="editor-section">
+                  <div className="editor-section-label">Details</div>
+                  <div className="field">
+                    <label>Lesson title</label>
+                    <input
+                      className="input"
+                      value={lessonForm.title}
+                      onChange={e => setLessonForm(p => ({ ...p, title: e.target.value }))}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Lesson description</label>
+                    <textarea
+                      className="input textarea"
+                      value={lessonForm.description}
+                      onChange={e => setLessonForm(p => ({ ...p, description: e.target.value }))}
+                      rows={4}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+
+                <div className="editor-section">
+                  <div className="editor-section-label">Content</div>
+                  <div className="field">
+                    <label>Content type</label>
+                    <div className="content-type-picker">
+                      {[
+                        { value: 'VIDEO',    label: 'Video',    icon: 'play-circle' },
+                        { value: 'DOCUMENT', label: 'Document', icon: 'file-text'  },
+                        { value: 'ARTICLE',  label: 'Article',  icon: 'book-open'  },
+                      ].map(({ value, label, icon }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`content-type-btn${lessonForm.contentType === value ? ' active' : ''}`}
+                          onClick={() => !isLocked && setLessonForm(p => ({ ...p, contentType: value }))}
+                          disabled={isLocked}
+                        >
+                          <Icon name={icon} size={14} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {!isLocked && (
+                    <LessonContentUpload
+                      key={activeLesson.lesson.id}
+                      courseId={courseId}
+                      moduleId={activeLesson.moduleId}
+                      lessonId={activeLesson.lesson.id}
+                      contentType={lessonForm.contentType}
+                      hasContent={!!activeLesson.lesson.contentKey || !!activeLesson.lesson.generatedContent}
+                      initialContent={activeLesson.lesson.generatedContent ?? ''}
+                      onUploaded={markLessonHasContent}
+                    />
+                  )}
+                </div>
+
+                {!isLocked && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--rule)', paddingTop: 18, marginTop: 8 }}>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => deleteLesson(activeLesson.moduleId, activeLesson.lesson.id)}
+                    >
+                      <Icon name="trash-2" size={14} /> Delete lesson
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={saveLesson} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save lesson'}
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+          </div>
         </div>
       </div>
 
@@ -576,6 +759,17 @@ function EditCourseBuilder({ courseId }) {
       {toast && <Notification>{toast}</Notification>}
     </div>
   );
+
+  function handleDeleteQuiz(moduleId, quizId) {
+    courseService.deleteQuiz(courseId, moduleId, quizId)
+      .then(() => {
+        setModules(prev => prev.map(m =>
+          m.id === moduleId ? { ...m, quizzes: (m.quizzes ?? []).filter(q => q.id !== quizId) } : m
+        ));
+        if (activeQuiz?.quiz?.id === quizId) setActiveQuiz(null);
+      })
+      .catch(err => showToast(getErrorMessage(err)));
+  }
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────

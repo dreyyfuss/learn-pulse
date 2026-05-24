@@ -17,6 +17,8 @@
 
 LearnPulse lets instructors publish structured courses (Course → Module → Lesson) and learners progress through them sequentially. On completion, the system generates a PDF certificate and emails it — exactly once, guaranteed via Kafka idempotency. An AI Study Assistant (RAG-backed) answers learner questions about course content in real time.
 
+Instructors can also describe a course topic in plain text and have the AI Course Builder generate a complete, ready-to-publish course — modules, lesson content (Markdown articles), and per-lesson quizzes — in one Kafka-driven async pipeline. Learners build daily learning streaks as they complete lessons, tracked server-side and visible from their dashboard.
+
 **Three roles:** Learner · Instructor · Admin — a single account can hold multiple roles simultaneously.
 
 ---
@@ -29,15 +31,18 @@ Browser
         ├─► User Service     :8081  — auth, users, admin
         ├─► Course Service   :8080  — courses, enrolments, progress, analytics
         ├─► Cert Service     :8082  — certificate generation & delivery
-        ├─► AI Service       :9000  — RAG chat (FastAPI + LangChain + Cerebras)
+        ├─► AI Service       :9000  — RAG chat (FastAPI + LangChain + Groq)
         └─► React SPA               — learner & instructor modes (/learn, /teach)
 
 Async backbone: Apache Kafka (KRaft)
-  course.published → AI Service (indexes lessons into ChromaDB)
-  user.enrolled    → Email notification
-  module.unlocked  → Email notification
-  course.completed → Cert Service (generates PDF → uploads to MinIO)
-  cert.generated   → Email delivery
+  course.published              → AI Service (indexes lessons into ChromaDB)
+  user.enrolled                 → Email notification
+  module.unlocked               → Email notification
+  course.completed              → Cert Service (generates PDF → uploads to MinIO)
+  cert.generated                → Email delivery
+  course.generation.requested   → AI Service (generates course structure + content + quizzes)
+  course.generation.completed   → Course Service (persists generated course)
+  course.generation.failed      → Course Service (marks job failed)
 
 Storage: MySQL (one schema per service) · MinIO/S3 · ChromaDB · Redis
 ```
@@ -63,7 +68,7 @@ For the full architecture diagram, Kafka event payloads, and API reference see t
 | Message Broker | Apache Kafka (KRaft, no Zookeeper) |
 | Object Storage | MinIO (dev) / AWS S3 (prod) |
 | Vector Store | ChromaDB |
-| LLM | Cerebras Inference — Llama 3.1 8B |
+| LLM | Groq — Llama 3.3 70B Versatile |
 | Email | Mailgun |
 | PDF Generation | Thymeleaf + Flying Saucer |
 | Monitoring | Prometheus + Grafana |
@@ -90,14 +95,16 @@ cd learn-pulse
 
 ### 2. Configure the AI service key
 
-The AI Study Assistant requires a free Cerebras API key. Sign up at [cloud.cerebras.ai](https://cloud.cerebras.ai) — no credit card required.
+The AI service needs one free API key:
+
+- **Groq** — powers the AI Study Assistant (RAG chat), course generation, and voice-to-text transcription via Whisper. Sign up at [console.groq.com](https://console.groq.com) — no credit card required.
 
 ```bash
 cp apps/ai-service/.env.example apps/ai-service/.env
-# Set CEREBRAS_API_KEY=<your-key> in apps/ai-service/.env
+# Set GROQ_API_KEY=<your-key> in apps/ai-service/.env
 ```
 
-> The rest of the platform starts fine without this key — only the AI chat tab will return an error.
+> The rest of the platform starts fine without this key — AI chat, course generation, and voice transcription will return errors if the key is missing.
 
 ### 3. Start the full stack
 
@@ -151,12 +158,12 @@ Navigate to [http://localhost](http://localhost). A seeded admin account is crea
 
 ## 🔑 Environment Variables
 
-All services default to safe dev values. The only variable you must set is `CEREBRAS_API_KEY` (see [Quick Start](#-quick-start)).
+All services default to safe dev values. The only variable you must set is `GROQ_API_KEY` (see [Quick Start](#-quick-start)).
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `CEREBRAS_API_KEY` | **Yes** | *(empty)* | AI chat responses — free tier at cloud.cerebras.ai |
-| `GROQ_API_KEY` | **Yes** | *(empty)* | Audio/video transcription via Groq Whisper — free tier at console.groq.com |
+| `GROQ_API_KEY` | **Yes** | *(empty)* | AI chat, course generation, and transcription — free tier at console.groq.com |
+| `GROQ_LLM_MODEL` | No | `llama-3.3-70b-versatile` | Groq model used for chat and course generation |
 | `MAILGUN_API_KEY` | No | *(empty)* | Emails are silently skipped if blank |
 | `MAILGUN_DOMAIN` | No | `sandbox.mailgun.org` | Mailgun sending domain |
 | `JWT_SECRET` | No | dev default | **Change this in production** |
@@ -172,6 +179,16 @@ Override any variable by setting it in your shell before running `docker compose
 2. Register as a **learner** → find the course → enrol → start it → mark the lesson complete.
 3. Check **Kafka UI** — messages should appear on `user.enrolled`, `module.unlocked`, and `course.completed`.
 4. Check **MinIO** (`learnpulse` bucket → `certificates/`) — the PDF certificate should be there.
+
+**Try the AI Course Builder:**
+1. As an instructor → navigate to the Course Builder → describe your course topic in plain text.
+2. The system generates a complete course (modules + lesson articles + quizzes) asynchronously via Kafka.
+3. Poll `GET /api/instructor/courses/generate/{jobId}` until `status: COMPLETED`.
+4. The generated course appears in your instructor dashboard as a `DRAFT`, ready to review and publish.
+
+**Try learning streaks:**
+1. As a learner, mark any lesson complete.
+2. Call `GET /api/learner/streak` — `currentStreak` increments each day you complete at least one lesson.
 
 ---
 
@@ -195,6 +212,21 @@ docker-compose.dev.yml
 
 ---
 
+## 🌍 Live Deployment
+
+The production instance runs on a VPS behind Traefik. The same `docker-compose.yml` is used in production — set the required secrets and run `docker compose up -d --build`.
+
+| URL | Service |
+|---|---|
+| http://learnpulse.io | LearnPulse web app (port 80 via Traefik) |
+| http://learnpulse.io:8090/dashboard/ | Traefik dashboard |
+| http://learnpulse.io:9010 | MinIO S3 API (presigned URLs) |
+| http://learnpulse.io:9001 | MinIO console |
+
+Continuous deployment is handled by the [GitHub Actions workflow](.github/workflows/deploy.yml) — every push to `main` runs all service tests, then SSHes into the VPS, pulls the latest code, rewrites `.env` from repository secrets, and runs `docker compose up -d --build --remove-orphans`. Deploy only proceeds when all four test suites pass.
+
+---
+
 ## 📚 Documentation
 
 | Document | Contents |
@@ -202,5 +234,5 @@ docker-compose.dev.yml
 | [`docs/PRD.md`](docs/PRD.md) | Full product requirements — features, roles, business rules |
 | [`docs/api-spec.md`](docs/api-spec.md) | Complete REST API reference |
 | [`docs/kafka-events.md`](docs/kafka-events.md) | Kafka topics, event payloads, consumer contracts |
-| [`docs/ERD.md`](docs/ERD.md) | Entity-relationship diagram |
+| [`docs/schema.md`](docs/schema.md) | Database schema — all tables, columns, constraints, and migration history |
 | [`docs/plan.md`](docs/plan.md) | Implementation plan and architectural decisions |

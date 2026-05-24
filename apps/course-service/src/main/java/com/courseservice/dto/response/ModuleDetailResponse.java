@@ -1,6 +1,7 @@
 package com.courseservice.dto.response;
 
 import com.courseservice.models.Module;
+import com.courseservice.models.Quiz;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,7 +15,8 @@ public record ModuleDetailResponse(
         String description,
         int orderIndex,
         LocalDateTime createdAt,
-        List<LessonDetailResponse> lessons
+        List<LessonDetailResponse> lessons,
+        List<QuizSummaryResponse> quizzes
 ) {
     public static ModuleDetailResponse from(Module m) {
         List<LessonDetailResponse> lessons = m.getLessons().stream()
@@ -22,7 +24,20 @@ public record ModuleDetailResponse(
                 .collect(Collectors.toList());
         return new ModuleDetailResponse(
                 m.getId(), m.getCourse().getId(), m.getTitle(), m.getDescription(),
-                m.getOrderIndex(), m.getCreatedAt(), lessons
+                m.getOrderIndex(), m.getCreatedAt(), lessons, List.of()
+        );
+    }
+
+    public static ModuleDetailResponse from(Module m, List<Quiz> quizzes) {
+        List<LessonDetailResponse> lessons = m.getLessons().stream()
+                .map(LessonDetailResponse::from)
+                .collect(Collectors.toList());
+        List<QuizSummaryResponse> quizResponses = quizzes.stream()
+                .map(QuizSummaryResponse::from)
+                .collect(Collectors.toList());
+        return new ModuleDetailResponse(
+                m.getId(), m.getCourse().getId(), m.getTitle(), m.getDescription(),
+                m.getOrderIndex(), m.getCreatedAt(), lessons, quizResponses
         );
     }
 }

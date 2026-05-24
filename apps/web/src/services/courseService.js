@@ -10,6 +10,8 @@ const courseService = {
   },
 
   listOwn:          ()    => api.get('/api/instructor/courses').then(r => r.data),
+  generateCourse:   (body)   => api.post('/api/instructor/courses/generate', body).then(r => r.data),
+  getGenerationJob: (jobId)  => api.get(`/api/instructor/courses/generate/${jobId}`).then(r => r.data),
   analytics:       (id)  => api.get(`/api/instructor/courses/${id}/analytics`).then(r => r.data),
   get:             (id)  => api.get(`/api/courses/${id}`).then(r => r.data),
   getEnrolmentCode:(id)  => api.get(`/api/courses/${id}/enrolment-code`).then(r => r.data),
@@ -27,6 +29,21 @@ const courseService = {
   updateLesson:  (cId, mId, lId, body)     => api.patch(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`, body).then(r => r.data),
   deleteLesson:  (cId, mId, lId)           => api.delete(`/api/courses/${cId}/modules/${mId}/lessons/${lId}`),
   reorderLessons: (cId, mId, lessons)      => api.put(`/api/courses/${cId}/modules/${mId}/lessons/reorder`, { lessons }),
+  reorderQuizzes: (cId, mId, quizzes)     => api.put(`/api/courses/${cId}/modules/${mId}/quizzes/reorder`, { quizzes }),
+
+  // ── Quiz CRUD (instructor) ────────────────────────────────────────────────
+
+  createQuiz:  (cId, mId, body)            => api.post(`/api/courses/${cId}/modules/${mId}/quizzes`, body).then(r => r.data),
+  updateQuiz:  (cId, mId, qId, body)       => api.patch(`/api/courses/${cId}/modules/${mId}/quizzes/${qId}`, body).then(r => r.data),
+  deleteQuiz:  (cId, mId, qId)             => api.delete(`/api/courses/${cId}/modules/${mId}/quizzes/${qId}`),
+  getQuizForInstructor: (cId, mId, qId)    => api.get(`/api/courses/${cId}/modules/${mId}/quizzes/${qId}`).then(r => r.data),
+  upsertQuizQuestions: (cId, mId, qId, body) => api.put(`/api/courses/${cId}/modules/${mId}/quizzes/${qId}/questions`, body).then(r => r.data),
+
+  // ── Quiz taking (learner) ─────────────────────────────────────────────────
+
+  getQuizForPlayer:   (qId)         => api.get(`/api/quizzes/${qId}/player`).then(r => r.data),
+  submitQuizAttempt:  (qId, answers) => api.post(`/api/quizzes/${qId}/attempts`, { answers }).then(r => r.data),
+  getBestAttempt:     (qId)          => api.get(`/api/quizzes/${qId}/attempts/best`).then(r => r.data),
 
   // ── Content upload / retrieval ────────────────────────────────────────────
 

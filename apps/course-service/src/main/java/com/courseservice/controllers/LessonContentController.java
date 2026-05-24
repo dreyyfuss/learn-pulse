@@ -11,6 +11,9 @@ import com.courseservice.dto.response.ContentUploadUrlResponse;
 import com.courseservice.dto.response.LessonContentResponse;
 import com.courseservice.security.UserPrincipal;
 import com.courseservice.services.LessonContentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Tag(name = "Lesson Content", description = "Video/document content and attachments")
 @RestController
 @RequestMapping("/api/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}")
 @RequiredArgsConstructor
@@ -30,6 +34,11 @@ public class LessonContentController {
 
     // ── Main content ──────────────────────────────────────────────────────────
 
+    @Operation(summary = "Get content upload URL")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Upload URL generated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping("/content/upload-url")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<ContentUploadUrlResponse>> getContentUploadUrl(
@@ -43,6 +52,11 @@ public class LessonContentController {
                 "Upload URL generated"));
     }
 
+    @Operation(summary = "Confirm content upload")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Content upload confirmed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping("/content/confirm")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<Void> confirmContentUpload(
@@ -55,6 +69,11 @@ public class LessonContentController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Get lesson content")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Content not found")
+    })
     @GetMapping("/content")
     public ResponseEntity<ApiResponse<LessonContentResponse>> getContent(
             @PathVariable UUID courseId,
@@ -66,6 +85,11 @@ public class LessonContentController {
                 "OK"));
     }
 
+    @Operation(summary = "Delete lesson content")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Content deleted"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @DeleteMapping("/content")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<Void> deleteContent(
@@ -79,6 +103,11 @@ public class LessonContentController {
 
     // ── Attachments ───────────────────────────────────────────────────────────
 
+    @Operation(summary = "Get attachment upload URL")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Upload URL generated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping("/attachments/upload-url")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<ContentUploadUrlResponse>> getAttachmentUploadUrl(
@@ -92,6 +121,11 @@ public class LessonContentController {
                 "Upload URL generated"));
     }
 
+    @Operation(summary = "Confirm attachment upload")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Attachment created"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping("/attachments/confirm")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<AttachmentResponse>> confirmAttachmentUpload(
@@ -105,6 +139,11 @@ public class LessonContentController {
                 "Attachment created"));
     }
 
+    @Operation(summary = "Get attachment download URL")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Attachment not found")
+    })
     @GetMapping("/attachments/{attachmentId}/download-url")
     public ResponseEntity<ApiResponse<AttachmentDownloadUrlResponse>> getAttachmentDownloadUrl(
             @PathVariable UUID courseId,

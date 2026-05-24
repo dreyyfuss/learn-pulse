@@ -50,10 +50,10 @@ export default function TeachDashboard() {
   const draftCount      = courses.filter(c => c.status === 'DRAFT').length;
 
   const stats = [
-    { label: 'Total courses',     value: String(courses.length),              delta: `${draftCount} draft` },
-    { label: 'Total enrolments',  value: totalEnrolled.toLocaleString() },
-    { label: 'Total completions', value: totalCompletions.toLocaleString() },
-    { label: 'Completion rate',   value: `${completionRate}%` },
+    { label: 'Total courses',     value: String(courses.length),              delta: `${draftCount} draft`, variant: 'indigo' },
+    { label: 'Total enrolments',  value: totalEnrolled.toLocaleString(),                                    variant: 'coral'  },
+    { label: 'Total completions', value: totalCompletions.toLocaleString(),                                  variant: 'green'  },
+    { label: 'Completion rate',   value: `${completionRate}%`,                                               variant: 'teal'   },
   ];
 
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'there';

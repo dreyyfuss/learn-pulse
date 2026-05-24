@@ -5,6 +5,7 @@ COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt requirements-test.txt ./
@@ -15,5 +16,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY app/ app/
 COPY tests/ tests/
 COPY pytest.ini .
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 EXPOSE 9000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]

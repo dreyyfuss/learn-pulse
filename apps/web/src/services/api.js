@@ -6,7 +6,7 @@ const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 let refreshing = null;
 
 async function doTokenRefresh() {
-  const { refreshToken, setAuth, clearAuth } = useAuthStore.getState();
+  const { refreshToken, setAuth, setToken, clearAuth } = useAuthStore.getState();
   if (!refreshToken) { clearAuth(); throw new Error('No refresh token'); }
 
   const res = await fetch(`${BASE}/api/auth/refresh`, {
@@ -19,8 +19,12 @@ async function doTokenRefresh() {
 
   const json = await res.json();
   const { accessToken, refreshToken: newRT, user } = json.data;
-  const [firstName, ...rest] = (user?.fullName ?? '').trim().split(' ');
-  setAuth({ ...user, firstName, lastName: rest.join(' ') }, accessToken, newRT ?? refreshToken);
+  if (user) {
+    const [firstName, ...rest] = (user.fullName ?? '').trim().split(' ');
+    setAuth({ ...user, firstName, lastName: rest.join(' ') }, accessToken, newRT ?? refreshToken);
+  } else {
+    setToken(accessToken);
+  }
   return accessToken;
 }
 

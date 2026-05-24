@@ -1,15 +1,92 @@
-name: Deploy
+name: CI / CD
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  deploy:
+
+  # ── Java service tests run in parallel ────────────────────────────────────
+
+  test-user-service:
+    name: Test — user-service
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Run tests
+        run: |
+          chmod +x ./mvnw
+          ./mvnw test -B
+        working-directory: apps/user-service
+
+  test-course-service:
+    name: Test — course-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Run tests
+        run: |
+          chmod +x ./mvnw
+          ./mvnw test -B
+        working-directory: apps/course-service
+
+  test-cert-service:
+    name: Test — cert-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Run tests
+        run: |
+          chmod +x ./mvnw
+          ./mvnw test -B
+        working-directory: apps/cert-service
+
+  test-ai-service:
+    name: Test — ai-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            apps/ai-service/requirements.txt
+            apps/ai-service/requirements-test.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-test.txt
+        working-directory: apps/ai-service
+      - name: Run tests
+        run: pytest -v
+        working-directory: apps/ai-service
+
+  # ── Deploy only after all tests pass, only on push to main ────────────────
+
+  deploy:
+    name: Deploy to VPS
+    needs: [test-user-service, test-course-service, test-cert-service, test-ai-service]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Deploy to VPS
+      - name: Deploy and verify
         uses: appleboy/ssh-action@v1.2.0
         env:
           APP_S3_PUBLIC_ENDPOINT: ${{ secrets.APP_S3_PUBLIC_ENDPOINT }}
@@ -27,7 +104,7 @@ jobs:
             cd /home/ubuntu/learn-pulse
             git pull origin main
 
-            printf 'APP_S3_PUBLIC_ENDPOINT=%s\nSERVICE_AUTH_SECRET=%s\nCEREBRAS_API_KEY=%s\nCEREBRAS_MODEL=llama-3.1-8b\nGROQ_API_KEY=%s\nBREVO_API_KEY=%s\n' \
+            printf 'APP_S3_PUBLIC_ENDPOINT=%s\nSERVICE_AUTH_SECRET=%s\nCEREBRAS_API_KEY=%s\nCEREBRAS_MODEL=llama-3.3-70b\nGROQ_API_KEY=%s\nBREVO_API_KEY=%s\n' \
               "$APP_S3_PUBLIC_ENDPOINT" \
               "$SERVICE_AUTH_SECRET" \
               "$CEREBRAS_API_KEY" \
@@ -36,3 +113,23 @@ jobs:
               > .env
 
             docker compose up -d --build --remove-orphans
+
+            echo "Waiting for services to become healthy..."
+            for svc in \
+              "http://localhost:8081/actuator/health" \
+              "http://localhost:8080/actuator/health" \
+              "http://localhost:8082/actuator/health" \
+              "http://localhost:9000/healthz"; do
+              for i in $(seq 1 24); do
+                if curl -sf "$svc" > /dev/null; then
+                  echo "$svc OK"
+                  break
+                fi
+                if [ "$i" -eq 24 ]; then
+                  echo "TIMEOUT waiting for $svc" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+            done
+            echo "All services healthy — deploy complete."
