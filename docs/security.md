@@ -1,77 +1,75 @@
-# LearnPulse — Security Checklist
-**Companion to:** `plan.md §13`
+# LearnPulse — Security Review
 
 ---
 
-## Authentication & Authorisation
+## Authentication and Authorization
 
-- [x] JWT access tokens (15-minute expiry) issued at login; `HS256` signed (symmetric HMAC-SHA256 using `JWT_SECRET`)
-- [x] Refresh tokens (7-day expiry) stored client-side; server-side blacklist in Redis on logout
-- [x] Traefik ForwardAuth validates JWT on every request before forwarding to downstream services
-- [x] Downstream services read `X-User-Id`, `X-User-Email`, `X-User-Roles` headers set by the gateway — never trust client-supplied headers
-- [x] Role-based access control (`LEARNER`, `INSTRUCTOR`, `ADMIN`) enforced with Spring Security `@PreAuthorize`
-- [x] `RoleRoute` component on the frontend prevents rendering of protected pages without the required role
+JWT access tokens (15-minute expiry, HS256-signed) are issued exclusively by the User Service. Refresh tokens carry a 7-day expiry and are held client-side; the server maintains a Redis blacklist that is checked on every token validation.
 
-## Service-to-Service Auth
+All JWT validation is handled centrally by Traefik's ForwardAuth middleware, which calls `GET /api/auth/validate` before forwarding any protected request. Downstream services (Course Service, Certificate Service, AI Service) never see or parse raw tokens -- they read pre-validated `X-User-Id`, `X-User-Email`, and `X-User-Roles` headers injected by the gateway. This keeps auth logic in one place and removes the risk of inconsistent validation across services.
 
-- [x] AI service → Course Service internal calls authenticated with `X-Service-Auth: <shared-secret>`
-- [x] `SERVICE_AUTH_SECRET` env var required in production; docker-compose sets a non-default value; `settings.py` default (`"change-me"`) only applies if the env var is absent
-- [x] Wrong secret returns `401 Unauthorized` (plan §6.7 acceptance check passes)
+Role-based access control (LEARNER, INSTRUCTOR, ADMIN) is enforced at the method level via Spring Security `@PreAuthorize` annotations on every protected endpoint. The frontend mirrors this with a `RoleGuard` component that prevents rendering of protected routes without the required role.
+
+Suspending a user via the admin panel writes a Redis blacklist key immediately, blocking all subsequent requests within the current token's lifetime without waiting for natural expiry.
+
+---
+
+## Service-to-Service Authentication
+
+Internal calls from the AI Service to the Course Service are authenticated with a shared secret via the `X-Service-Auth` header. The secret is injected at runtime via the `SERVICE_AUTH_SECRET` environment variable. Requests with an incorrect or missing secret return `401 Unauthorized`.
+
+---
 
 ## Secrets Management
 
-- [x] All secrets passed via environment variables; no credentials in source code
-- [x] `.env` files listed in `.gitignore`; `.env.example` files contain only placeholder values
-- [x] `SERVICE_AUTH_SECRET`, `GROQ_API_KEY`, `MAILGUN_API_KEY` injected at deploy time via GitHub Actions secrets
-- [x] S3/MinIO credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) injected via environment; never hardcoded
-
-## Input Validation
-
-- [x] All request bodies validated with Bean Validation (`@Valid`, `@NotBlank`, `@Size`, etc.) at controller boundaries
-- [x] SQL injection: Spring Data JPA parameterised queries throughout — no raw JDBC string concatenation
-- [x] XSS: React JSX escapes all interpolated values by default; no `dangerouslySetInnerHTML` used
-
-## Certificate Download
-
-- [x] Certificate ownership verified in `CertificateController.download()` — `cert.getUserId().equals(userId)` before presigning
-- [x] Presigned S3 URLs have a 5-minute TTL (`Duration.ofMinutes(5)`)
-- [x] `302 Found` redirect — certificate bytes never pass through the cert-service heap
-
-## Enrolment Code Security
-
-- [x] Enrolment codes are generated as random 8-character uppercase alphanumeric strings and stored in plain text in `courses.enrolment_code`; they are never included in public course listing responses
-- [x] Invalid code returns `400 ENROLMENT_CODE_INVALID` — does not reveal whether the code itself is valid or which course it belongs to
-
-## Rate Limiting
-
-- [x] Traefik rate-limit middleware: 10 requests/minute per IP, burst 5 (`traefik.dev.yml`)
-- [x] AI chat endpoint additionally guarded by Groq free-tier limits; Redis reply cache (key `aicache:<sha256>`, TTL 1 h) absorbs repeated questions and reduces LLM API calls
-
-## Kafka Consumer Idempotency
-
-- [x] All Kafka consumers write to `idempotency_log` in the same DB transaction as their domain action
-- [x] Unique constraint on `idempotency_log.event_id` prevents duplicate processing on redelivery
-- [x] `certificates` table has composite unique key `(user_id, course_id)` as a second layer of protection
-
-## Content Upload & Retrieval
-
-- [x] Presigned PUT URLs for lesson content and attachment uploads have a 15-minute TTL; the browser uploads directly to S3/MinIO — bytes never pass through the Course Service heap
-- [x] Upload access requires instructor ownership of the course (`course.instructorId.equals(instructorId)`)
-- [x] On confirm, the submitted `objectKey` must start with `"lessons/{lessonId}/"` — requests with a key outside this prefix are rejected `400 Bad Request`, preventing path traversal
-- [x] Attachment filenames are sanitised to `[a-zA-Z0-9._-]` before being used as the S3 object key suffix
-- [x] Presigned GET URLs for lesson content and attachments have a 1-hour TTL; download access requires an active enrolment with the relevant module unlocked
-- [x] Instructors can always retrieve content for their own course; learner access is gated by `module_unlocks`
-
-## CORS
-
-- [x] Spring Boot services configured to accept requests from the frontend origin only (not `*`)
-- [x] Traefik forwards `Origin` header; responses include correct `Access-Control-Allow-Origin`
-
-## Dependency Security
-
-- [ ] Run `npm audit` / `./mvnw dependency:check` / `pip-audit` before final submission and resolve HIGH/CRITICAL findings
-- [ ] Confirm no CVE-flagged transitive dependencies in the Docker base images
+All credentials and keys are injected via environment variables. No secrets are present in source code. `.env` files are listed in `.gitignore`; `.env.example` files contain only placeholder values. In production, `SERVICE_AUTH_SECRET`, `GROQ_API_KEY`, `MAILGUN_API_KEY`, and object storage credentials are injected via GitHub Actions repository secrets at deploy time and never written to disk.
 
 ---
 
-*Last updated: 2026-05-23*
+## Input Validation
+
+All request bodies are validated with Bean Validation (`@Valid`, `@NotBlank`, `@Size`, etc.) at controller boundaries before any business logic executes. SQL injection is prevented throughout by Spring Data JPA's parameterised queries -- no raw JDBC string concatenation exists in any service. XSS is mitigated on the frontend by React JSX's default escaping of all interpolated values; `dangerouslySetInnerHTML` is not used anywhere in the application.
+
+---
+
+## File Security
+
+### Content Upload
+
+Instructors upload lesson content directly to object storage via presigned PUT URLs with a 15-minute TTL. File bytes never pass through the Course Service heap. Upload access requires verified instructor ownership of the course. On confirmation, the submitted object key is validated to start with `"lessons/{lessonId}/"` -- requests with a key outside this prefix are rejected with `400 Bad Request`, preventing path traversal. Attachment filenames are sanitised to `[a-zA-Z0-9._-]` before being used as the object key suffix.
+
+### Content Retrieval
+
+Learner access to lesson content is served via presigned GET URLs with a 1-hour TTL, gated by an active enrolment with the relevant module unlocked. Instructors can always retrieve content for their own courses.
+
+### Certificate Download
+
+Before generating a presigned download URL, the Certificate Service verifies that the requesting user's ID matches the certificate owner. Presigned S3 URLs have a 5-minute TTL. Certificate bytes are never loaded into the service heap -- a `302 Found` redirect sends the browser directly to object storage.
+
+---
+
+## Enrolment Code Security
+
+Enrolment codes are randomly generated 8-character uppercase alphanumeric strings stored in plain text. They are never included in public course listing or course detail responses. An invalid code lookup returns `400 ENROLMENT_CODE_INVALID` without revealing whether the code exists or which course it belongs to.
+
+---
+
+## Rate Limiting
+
+Traefik's rate-limit middleware is applied to auth and sensitive endpoints at 10 requests per minute per IP with a burst allowance of 5. The AI chat endpoint is additionally protected by a Redis reply cache (keyed on `sha256(courseId + normalisedMessage)`, TTL 1 hour) that absorbs repeated questions and reduces exposure to Groq's upstream rate limits.
+
+---
+
+## Kafka Consumer Idempotency
+
+All Kafka consumers write to an `idempotency_log` table in the same database transaction as their domain action. A unique constraint on `idempotency_log.event_id` prevents duplicate processing on message redelivery. For certificate issuance, a composite unique key on `(user_id, course_id)` in the `certificates` table provides a second layer of protection, ensuring exactly one certificate is ever issued per learner per course regardless of redelivery or consumer restarts.
+
+---
+
+## CORS
+
+Spring Boot services are configured to accept requests from the frontend origin only. Wildcard origins (`*`) are not permitted.
+
+---
+
+*Last updated: May 2026*

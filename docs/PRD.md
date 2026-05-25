@@ -20,11 +20,11 @@
 
 ## 1. Overview
 
-**LearnPulse** is an online learning platform built around a simple idea: most platforms tell you who signed up. LearnPulse tells you who learned.
+**LearnPulse** is an online learning platform built for two kinds of people: busy professionals who need to turn their expertise into a structured course without becoming instructional designers, and learners who want more than passive content consumption -- they want a guide that knows the course material as well as the instructor does.
 
-The platform serves two users simultaneously. **Instructors** (or team leads, managers, subject-matter experts) who need to turn their knowledge into a structured course — fast — and **learners** who need to stay on track, engage with content, and prove they understood it.
+The AI Course Builder lets instructors go from a plain-text description to a fully structured, ready-to-publish course in minutes. The AI Study Assistant gives every learner a personal tutor, grounded strictly in that course's own content, available at any point during the course.
 
-> *Intelligent learning, engineered for scale.*
+> *Intelligent learning, made personal.*
 
 ---
 
@@ -35,8 +35,8 @@ Only 1 in 7 learners finish what they start (Coursera / Udemy industry data). Le
 | # | Problem | How LearnPulse solves it |
 |---|---|---|
 | 01 | **Nobody finishes.** Learners enrol, disappear, and nobody notices. | Sequential progression, daily streaks, and email nudges keep learners moving forward. |
-| 02 | **Creating a course takes too long.** Experts aren't instructional designers. Knowledge stays locked in someone's head. | The AI Course Builder turns a plain-text description into a complete course — modules, articles, and quizzes — in minutes. |
-| 03 | **There is no proof learning happened.** The platform records who clicked Start. Not who understood. | Quizzes test comprehension at every step. Verified PDF certificates prove completion. |
+| 02 | **Course creation is too slow for busy professionals.** Subject-matter experts have the knowledge but not the time or instructional design skills to structure it into a course. Knowledge stays locked in someone's head. | The AI Course Builder turns a plain-text description into a complete course -- modules, lesson articles, and quizzes -- in minutes. The instructor reviews and publishes; the hard structural work is already done. |
+| 03 | **Learners get stuck and have no one to ask.** Watching a video or reading an article is passive. When a concept does not land, most platforms offer nothing. Learners drop off rather than push through. | The AI Study Assistant answers questions in real time, grounded strictly in that course's own content. Learners get relevant, contextual help exactly when they need it, without leaving the course. |
 
 ---
 
@@ -66,10 +66,10 @@ Only 1 in 7 learners finish what they start (Coursera / Udemy industry data). Le
 ## 4. User Personas
 
 **Yinka — Engineering Manager**  
-Six new hires starting next month. The onboarding playbook lives in her head. She needs to turn that expertise into a structured course quickly, share it privately with her team, and know which new hires actually understood it — not just who clicked through.
+Six new hires starting next month. The onboarding playbook lives in her head. She has no time to spend weeks drafting slides and structuring modules. She needs to get that knowledge out of her head and into a private, structured course her team can work through -- fast. The AI Course Builder gives her a complete starting point in minutes; she reviews, adjusts, and publishes.
 
 **Tobi — Solo Learner**  
-Eager to grow. Starts every course. Finishes almost none. Learns better when he can ask questions and when the platform makes it feel like progress is happening. Needs nudges, interaction, and something to show for his effort.
+Eager to grow. Starts every course. Finishes almost none. His biggest obstacle is hitting a concept he does not fully grasp and having nowhere to turn -- so he tabs away and never comes back. With the AI Study Assistant he can ask the question, get a direct answer rooted in the course material, and keep moving.
 
 ---
 

@@ -205,19 +205,10 @@ export default function CoursePlayer() {
       startCertPoll(courseId);
       return;
     }
-    setToast('Quiz passed!'); setTimeout(() => setToast(''), 2500);
     if (nextModuleId) {
       setResolvedModules(prev => prev.map(m =>
         m.moduleId === nextModuleId ? { ...m, unlocked: true } : m
       ));
-    }
-    const nextItem = allItems[currentIdx + 1];
-    if (nextItem) {
-      const nextMod = resolvedModules.find(m =>
-        [...m.lessons, ...m.quizzes].some(i => i.itemId === nextItem.itemId)
-      );
-      const willUnlock = nextMod?.moduleId === nextModuleId || nextMod?.unlocked;
-      if (willUnlock) setTimeout(() => setCurrentItemId(nextItem.itemId), 800);
     }
   };
 
@@ -285,6 +276,22 @@ export default function CoursePlayer() {
 
         <div>
           {currentItem && isLesson && (
+            <div className="lesson-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span className="lesson-content-type">
+                  <Icon name={
+                    currentItem.contentType === 'VIDEO' ? 'play-circle' :
+                    currentItem.contentType === 'DOCUMENT' ? 'file-text' : 'book-open'
+                  } size={13} />
+                  {currentItem.contentType?.charAt(0) + (currentItem.contentType?.slice(1).toLowerCase() ?? '')}
+                </span>
+              </div>
+              <div className="lesson-breadcrumb">{mod?.title} / {currentItem.title}</div>
+              <h2 className="lesson-title">{currentItem.title}</h2>
+            </div>
+          )}
+
+          {currentItem && isLesson && (
             <LessonContentViewer
               courseId={courseId}
               moduleId={mod?.moduleId}
@@ -299,22 +306,6 @@ export default function CoursePlayer() {
                 quizId={currentItem.itemId}
                 onPassed={handleQuizPassed}
               />
-            </div>
-          )}
-
-          {currentItem && isLesson && (
-            <div className="lesson-body">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span className="lesson-content-type">
-                  <Icon name={
-                    currentItem.contentType === 'VIDEO' ? 'play-circle' :
-                    currentItem.contentType === 'DOCUMENT' ? 'file-text' : 'book-open'
-                  } size={13} />
-                  {currentItem.contentType?.charAt(0) + (currentItem.contentType?.slice(1).toLowerCase() ?? '')}
-                </span>
-              </div>
-              <div className="lesson-breadcrumb">{mod?.title} / {currentItem.title}</div>
-              <h2 className="lesson-title">{currentItem.title}</h2>
             </div>
           )}
         </div>

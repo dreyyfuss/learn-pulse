@@ -24,9 +24,10 @@ function EditCourseBuilder({ courseId }) {
   // Editor state
   const [courseTitle, setCourseTitle] = useState('');
   const [courseVisibility, setCourseVisibility] = useState('PUBLIC');
-  const [activeLesson, setActiveLesson] = useState(null); // { lesson, moduleId }
-  const [activeQuiz, setActiveQuiz]     = useState(null); // { quiz, moduleId }
-  const [lessonForm, setLessonForm] = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
+  const [activeLesson, setActiveLesson]       = useState(null); // { lesson, moduleId }
+  const [activeQuiz, setActiveQuiz]           = useState(null); // { quiz, moduleId }
+  const [lessonForm, setLessonForm]           = useState({ title: '', contentType: 'VIDEO', contentUrl: '', description: '' });
+  const [newContentUploaded, setNewContentUploaded] = useState(false);
 
   // Inline-add state
   const [addingModule, setAddingModule]               = useState(false);
@@ -183,10 +184,17 @@ function EditCourseBuilder({ courseId }) {
     if (!activeLesson) return;
     const { lesson, moduleId } = activeLesson;
     setSaving(true);
+    const contentTypeChanged = lessonForm.contentType !== lesson.contentType;
+    const resolvedContentType = (contentTypeChanged && !newContentUploaded)
+      ? lesson.contentType
+      : lessonForm.contentType;
+    if (contentTypeChanged && !newContentUploaded) {
+      setLessonForm(p => ({ ...p, contentType: lesson.contentType }));
+    }
     try {
       const body = {
-        title:       lessonForm.title       || null,
-        contentType: lessonForm.contentType || null,
+        title:       lessonForm.title    || null,
+        contentType: resolvedContentType || null,
         contentUrl:  lessonForm.contentUrl  || null,
         description: lessonForm.description || null,
       };
@@ -286,6 +294,7 @@ function EditCourseBuilder({ courseId }) {
   const selectLesson = (lesson, moduleId) => {
     setActiveLesson({ lesson, moduleId });
     setActiveQuiz(null);
+    setNewContentUploaded(false);
     setLessonForm({
       title:       lesson.title       ?? '',
       contentType: lesson.contentType ?? 'VIDEO',
@@ -311,6 +320,7 @@ function EditCourseBuilder({ courseId }) {
         : m
     ));
     setActiveLesson({ lesson: updated, moduleId });
+    setNewContentUploaded(true);
   };
 
   // ── Render states ──
@@ -334,6 +344,10 @@ function EditCourseBuilder({ courseId }) {
 
       {/* Top bar */}
       <div className="builder-topbar">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/teach/courses')} style={{ flexShrink: 0 }}>
+          <Icon name="chevron-left" size={15} /> My courses
+        </button>
+        <div className="topbar-sep" />
         {isLocked
           ? <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, color: 'var(--ink)', flex: 1 }}>{courseTitle}</span>
           : <input
@@ -344,46 +358,46 @@ function EditCourseBuilder({ courseId }) {
             />
         }
         <Tag variant={statusVariant}>{statusLabel}</Tag>
-        {!isLocked && (
-          <select
-            className="input select"
-            style={{ fontSize: 13, padding: '4px 10px', height: 32, minWidth: 130 }}
-            value={courseVisibility}
-            onChange={e => saveVisibility(e.target.value)}
-          >
-            <option value="PUBLIC">Public</option>
-            <option value="PRIVATE">Private</option>
-          </select>
-        )}
-        {enrolmentCode && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
-            <Icon name="key" size={13} color="var(--ink-3)" />
-            <span style={{ color: 'var(--ink-2)', userSelect: 'all', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{enrolmentCode}</span>
-            <button
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--ink-3)', display: 'flex', alignItems: 'center' }}
-              title="Copy enrolment code"
-              onClick={() => { navigator.clipboard.writeText(enrolmentCode); showToast('Enrolment code copied.'); }}
+        <div className="topbar-actions">
+          {!isLocked && (
+            <select
+              className="input select"
+              style={{ fontSize: 13, padding: '4px 10px', height: 32, minWidth: 110 }}
+              value={courseVisibility}
+              onChange={e => saveVisibility(e.target.value)}
             >
-              <Icon name="copy" size={13} />
-            </button>
-          </div>
-        )}
-        {!isLocked && !isPublished && (
-          <>
-            <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={saving}>
-              {saving ? 'Saving…' : 'Save draft'}
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => { setPublishError(''); setShowPublish(true); }}
-            >
-              Publish
-            </button>
-          </>
-        )}
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/teach/courses')}>
-          ← My courses
-        </button>
+              <option value="PUBLIC">Public</option>
+              <option value="PRIVATE">Private</option>
+            </select>
+          )}
+          {enrolmentCode && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--paper-2)', border: '1px solid var(--rule)', borderRadius: 8, padding: '4px 10px', fontSize: 13 }}>
+              <Icon name="key" size={13} color="var(--ink-3)" />
+              <span style={{ color: 'var(--ink-2)', userSelect: 'all', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{enrolmentCode}</span>
+              <button
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--ink-3)', display: 'flex', alignItems: 'center' }}
+                title="Copy enrolment code"
+                onClick={() => { navigator.clipboard.writeText(enrolmentCode); showToast('Enrolment code copied.'); }}
+              >
+                <Icon name="copy" size={13} />
+              </button>
+            </div>
+          )}
+          {!isLocked && !isPublished && (
+            <>
+              <div className="topbar-sep" />
+              <button className="btn btn-secondary btn-sm" onClick={saveDraft} disabled={saving}>
+                {saving ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => { setPublishError(''); setShowPublish(true); }}
+              >
+                Publish
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Builder shell */}
@@ -559,6 +573,7 @@ function EditCourseBuilder({ courseId }) {
 
         {/* Right — editor panel */}
         <div className="builder-editor">
+          <div className="builder-editor-inner">
           {isLocked && (
             <div className="locked-banner">
               <Icon name="lock" size={16} />
@@ -590,84 +605,112 @@ function EditCourseBuilder({ courseId }) {
               }}
             />
           ) : !activeLesson ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--ink-3)', gap: 12 }}>
-              <Icon name="mouse-pointer-click" size={36} color="var(--ink-4)" />
-              <p style={{ margin: 0, fontSize: 14 }}>
-                {isLocked ? 'Select a lesson or quiz to preview it.' : 'Select a lesson or quiz to edit, or add a new one.'}
-              </p>
+            <div className="editor-overview">
+              <div>
+                <p className="editor-overview-title">{courseTitle}</p>
+              </div>
+              <div className="editor-overview-stats">
+                <span className="editor-overview-stat">{modules.length} module{modules.length !== 1 ? 's' : ''}</span>
+                <span className="editor-overview-stat">
+                  {modules.reduce((n, m) => n + (m.lessons?.length ?? 0), 0)} lesson{modules.reduce((n, m) => n + (m.lessons?.length ?? 0), 0) !== 1 ? 's' : ''}
+                </span>
+                <span className="editor-overview-stat">
+                  {modules.reduce((n, m) => n + (m.quizzes?.length ?? 0), 0)} quiz{modules.reduce((n, m) => n + (m.quizzes?.length ?? 0), 0) !== 1 ? 'zes' : ''}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Icon name="mouse-pointer-click" size={28} color="var(--ink-5)" />
+                <p className="editor-overview-hint">
+                  {isLocked ? 'Select a lesson or quiz to preview it.' : 'Select a lesson or quiz to edit, or add a new one from the sidebar.'}
+                </p>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="page-eyebrow" style={{ marginBottom: 4 }}>Lesson editor</div>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, letterSpacing: '-0.01em', margin: '0 0 24px' }}>
-                {activeLesson.lesson.title || 'Untitled lesson'}
-              </h2>
-
-              <div className="field">
-                <label>Lesson title</label>
-                <input
-                  className="input"
-                  value={lessonForm.title}
-                  onChange={e => setLessonForm(p => ({ ...p, title: e.target.value }))}
-                  disabled={isLocked}
-                />
-              </div>
-
-              <div className="field">
-                <label>Content type</label>
-                <select
-                  className="input select"
-                  value={lessonForm.contentType}
-                  onChange={e => setLessonForm(p => ({ ...p, contentType: e.target.value }))}
-                  disabled={isLocked}
-                  style={{ maxWidth: 200 }}
-                >
-                  <option value="VIDEO">Video</option>
-                  <option value="DOCUMENT">Document</option>
-                  <option value="ARTICLE">Article</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-
-              {!isLocked && (
-                <LessonContentUpload
-                  key={activeLesson.lesson.id}
-                  courseId={courseId}
-                  moduleId={activeLesson.moduleId}
-                  lessonId={activeLesson.lesson.id}
-                  contentType={lessonForm.contentType}
-                  hasContent={!!activeLesson.lesson.contentKey || !!activeLesson.lesson.generatedContent}
-                  initialContent={activeLesson.lesson.generatedContent ?? ''}
-                  onUploaded={markLessonHasContent}
-                />
-              )}
-
-              <div className="field">
-                <label>Lesson description</label>
-                <textarea
-                  className="input textarea"
-                  value={lessonForm.description}
-                  onChange={e => setLessonForm(p => ({ ...p, description: e.target.value }))}
-                  rows={4}
-                  disabled={isLocked}
-                />
-              </div>
-
-              {!isLocked && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--rule)', paddingTop: 18, marginTop: 8 }}>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => deleteLesson(activeLesson.moduleId, activeLesson.lesson.id)}
-                  >
-                    <Icon name="trash-2" size={14} /> Delete lesson
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={saveLesson} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save lesson'}
-                  </button>
+          ) : (() => {
+            const activeModule = modules.find(m => m.id === activeLesson.moduleId);
+            return (
+              <>
+                <div className="editor-header">
+                  <div className="editor-context">{activeModule?.title} / Lesson</div>
+                  <h2 className="editor-title">{activeLesson.lesson.title || 'Untitled lesson'}</h2>
                 </div>
-              )}
-            </>
-          )}
+
+                <div className="editor-section">
+                  <div className="editor-section-label">Details</div>
+                  <div className="field">
+                    <label>Lesson title</label>
+                    <input
+                      className="input"
+                      value={lessonForm.title}
+                      onChange={e => setLessonForm(p => ({ ...p, title: e.target.value }))}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Lesson description</label>
+                    <textarea
+                      className="input textarea"
+                      value={lessonForm.description}
+                      onChange={e => setLessonForm(p => ({ ...p, description: e.target.value }))}
+                      rows={4}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+
+                <div className="editor-section">
+                  <div className="editor-section-label">Content</div>
+                  <div className="field">
+                    <label>Content type</label>
+                    <div className="content-type-picker">
+                      {[
+                        { value: 'VIDEO',    label: 'Video',    icon: 'play-circle' },
+                        { value: 'DOCUMENT', label: 'Document', icon: 'file-text'  },
+                        { value: 'ARTICLE',  label: 'Article',  icon: 'book-open'  },
+                      ].map(({ value, label, icon }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`content-type-btn${lessonForm.contentType === value ? ' active' : ''}`}
+                          onClick={() => !isLocked && setLessonForm(p => ({ ...p, contentType: value }))}
+                          disabled={isLocked}
+                        >
+                          <Icon name={icon} size={14} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {!isLocked && (
+                    <LessonContentUpload
+                      key={activeLesson.lesson.id}
+                      courseId={courseId}
+                      moduleId={activeLesson.moduleId}
+                      lessonId={activeLesson.lesson.id}
+                      contentType={lessonForm.contentType}
+                      hasContent={!!activeLesson.lesson.contentKey || !!activeLesson.lesson.generatedContent}
+                      initialContent={activeLesson.lesson.generatedContent ?? ''}
+                      onUploaded={markLessonHasContent}
+                    />
+                  )}
+                </div>
+
+                {!isLocked && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--rule)', paddingTop: 18, marginTop: 8 }}>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => deleteLesson(activeLesson.moduleId, activeLesson.lesson.id)}
+                    >
+                      <Icon name="trash-2" size={14} /> Delete lesson
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={saveLesson} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save lesson'}
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+          </div>
         </div>
       </div>
 

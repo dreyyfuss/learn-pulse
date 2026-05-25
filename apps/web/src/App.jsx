@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import router from './router';
 import useAuthStore from './store/authStore';
 import { refresh } from './services/authService';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const { refreshToken, setToken, setAuth, clearAuth } = useAuthStore();
@@ -25,5 +26,9 @@ export default function App() {
   }, []);
 
   if (!ready) return null;
-  return <RouterProvider router={router} />;
+  return (
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+    </ErrorBoundary>
+  );
 }

@@ -10,6 +10,9 @@ import com.courseservice.security.UserPrincipal;
 import com.courseservice.services.CourseGenerationService;
 import com.courseservice.services.CourseService;
 import com.courseservice.services.InstructorAnalyticsService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+@Tag(name = "Instructor", description = "Instructor dashboard and AI course generation")
 @RestController
 @RequestMapping("/api/instructor")
 @RequiredArgsConstructor
@@ -36,6 +40,11 @@ public class InstructorController {
     private final InstructorAnalyticsService instructorAnalyticsService;
     private final CourseGenerationService courseGenerationService;
 
+    @Operation(summary = "List my courses")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @GetMapping("/courses")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<PageResponse<CourseSummaryResponse>>> listOwnCourses(
@@ -46,6 +55,12 @@ public class InstructorController {
                 courseService.listOwn(principal.getId(), pageable), "OK"));
     }
 
+    @Operation(summary = "Get course analytics")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Course not found")
+    })
     @GetMapping("/courses/{id}/analytics")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<CourseAnalyticsResponse>> getCourseAnalytics(
@@ -56,6 +71,12 @@ public class InstructorController {
                 instructorAnalyticsService.getAnalytics(id, principal.getId()), "OK"));
     }
 
+    @Operation(summary = "Generate course with AI")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "Course generation started"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     @PostMapping("/courses/generate")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<GenerationJobResponse>> generateCourse(
@@ -67,6 +88,12 @@ public class InstructorController {
                 .body(ApiResponse.success(response, "Course generation started"));
     }
 
+    @Operation(summary = "Check generation job status")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Job not found")
+    })
     @GetMapping("/courses/generate/{jobId}")
     @PreAuthorize("hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<GenerationJobResponse>> getGenerationJob(

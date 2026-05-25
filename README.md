@@ -1,8 +1,6 @@
 # LearnPulse
 
- An event-driven online learning platform — structured courses, sequential progression, AI-assisted study, and automated PDF certificates.
-
-**Moniepoint DreamDev Capstone · May 2026**
+An event-driven online learning platform built as the **Moniepoint DreamDev Capstone (May 2026)** submission by **Anthony Alikah** and **John Agene**.
 
 ![Java](https://img.shields.io/badge/Java-21+-orange?logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-brightgreen?logo=springboot)
@@ -11,110 +9,106 @@
 ![Kafka](https://img.shields.io/badge/Kafka-KRaft-black?logo=apachekafka)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)
 
----
-
-## 📖 Overview
-
-LearnPulse lets instructors publish structured courses (Course → Module → Lesson) and learners progress through them sequentially. On completion, the system generates a PDF certificate and emails it — exactly once, guaranteed via Kafka idempotency. An AI Study Assistant (RAG-backed) answers learner questions about course content in real time.
-
-Instructors can also describe a course topic in plain text and have the AI Course Builder generate a complete, ready-to-publish course — modules, lesson content (Markdown articles), and per-lesson quizzes — in one Kafka-driven async pipeline. Learners build daily learning streaks as they complete lessons, tracked server-side and visible from their dashboard.
-
-**Three roles:** Learner · Instructor · Admin — a single account can hold multiple roles simultaneously.
+**Live demo:** http://learnpulse.duckdns.org
 
 ---
 
-## 🏗️ Architecture
+## Overview
+
+LearnPulse lets instructors publish structured courses (Course → Module → Lesson) and learners progress through them sequentially. On completion, the system generates a PDF certificate and emails it, guaranteed exactly once via Kafka idempotency.
+
+Key features:
+
+- **Structured courses** -- Course → Module → Lesson hierarchy with enforced sequential progression; learners cannot skip ahead
+- **Quizzes** -- per-module MCQ and True/False quizzes with configurable passing scores and unlimited retakes; best attempt is always recorded
+- **PDF certificates** -- generated and emailed to the learner on course completion, guaranteed exactly once via Kafka idempotency; downloadable from the dashboard at any time
+- **Private courses** -- instructors can restrict enrolment to invited learners using a shareable enrolment code
+- **Content upload** -- instructors upload video, documents (PDF, DOCX), or Markdown articles; learners access content through time-limited secure URLs
+- **AI Course Builder** -- instructors describe a topic in plain text and the system generates a complete course (modules, lessons with full Markdown articles, and quizzes) through an async Kafka pipeline
+- **AI Study Assistant** -- answers learner questions about course content using RAG (ChromaDB + Groq LLM), grounded strictly in that course's own material
+- **Analytics** -- instructors get per-course enrolment and completion stats with a per-learner breakdown; admins get platform-wide visibility
+- **Learning streaks** -- server-tracked daily streaks visible on the learner dashboard
+- **Email notifications** -- learners are notified on enrolment and when the next module unlocks
+- **Three roles** -- Learner, Instructor, and Admin; a single account can hold multiple roles simultaneously with a mode switcher in the nav bar
+
+---
+
+## Architecture
 
 ```
 Browser
   └─► Traefik :80  (API gateway + JWT ForwardAuth + rate limiting)
-        ├─► User Service     :8081  — auth, users, admin
-        ├─► Course Service   :8080  — courses, enrolments, progress, analytics
-        ├─► Cert Service     :8082  — certificate generation & delivery
-        ├─► AI Service       :9000  — RAG chat (FastAPI + LangChain + Groq)
-        └─► React SPA               — learner & instructor modes (/learn, /teach)
-
-Async backbone: Apache Kafka (KRaft)
-  course.published              → AI Service (indexes lessons into ChromaDB)
-  user.enrolled                 → Email notification
-  module.unlocked               → Email notification
-  course.completed              → Cert Service (generates PDF → uploads to MinIO)
-  cert.generated                → Email delivery
-  course.generation.requested   → AI Service (generates course structure + content + quizzes)
-  course.generation.completed   → Course Service (persists generated course)
-  course.generation.failed      → Course Service (marks job failed)
-
-Storage: MySQL (one schema per service) · MinIO/S3 · ChromaDB · Redis
+        ├─► User Service     :8081  -- auth, users, admin
+        ├─► Course Service   :8080  -- courses, enrolments, progress, analytics
+        ├─► Cert Service     :8082  -- certificate generation and delivery
+        ├─► AI Service       :9000  -- RAG chat (FastAPI + LangChain + Groq)
+        └─► React SPA               -- learner and instructor modes
 ```
 
-> JWT validation is handled centrally by Traefik via ForwardAuth — downstream services receive pre-validated headers (`X-User-Id`, `X-User-Roles`) and never see raw tokens.
+JWT validation is handled centrally by Traefik via ForwardAuth. Downstream services receive pre-validated `X-User-Id` and `X-User-Roles` headers and never touch raw tokens.
 
-For the full architecture diagram, Kafka event payloads, and API reference see the [docs](docs/PRD.md) folder.
+The async backbone is Apache Kafka (KRaft, no Zookeeper), carrying events for enrolment notifications, certificate generation, AI indexing, and course generation.
+
+For the full architecture diagram, Kafka event payloads, API reference, and database schema see the [`docs/`](docs/) folder.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React 18 + Vite + React Router |
 | API Gateway | Traefik v3 |
-| Course / LMS Service | Java 21+ + Spring Boot 3 |
-| User Service | Java 21+ + Spring Boot 3 |
-| Certificate Service | Java 21+ + Spring Boot 3 |
+| Backend Services | Java 21 + Spring Boot 3 (x3) |
 | AI Service | Python 3.12 + FastAPI + LangChain |
-| Databases | MySQL 8 (one schema per service) |
+| Database | MySQL 8 (one schema per service) |
 | Cache | Redis 7 |
-| Message Broker | Apache Kafka (KRaft, no Zookeeper) |
-| Object Storage | MinIO (dev) / AWS S3 (prod) |
+| Message Broker | Apache Kafka (KRaft) |
 | Vector Store | ChromaDB |
-| LLM | Groq — Llama 3.3 70B Versatile |
+| LLM | Groq -- Llama 3.3 70B Versatile |
 | Email | Mailgun |
 | PDF Generation | Thymeleaf + Flying Saucer |
 | Monitoring | Prometheus + Grafana |
+| CI/CD | GitHub Actions |
 
 ---
 
-## ⚡ Quick Start
+## Running Locally
 
 ### Prerequisites
 
-| Tool | Version |
-|---|---|
-| Docker + Docker Compose | 24+ / v2 |
-| Git | any |
+- Docker + Docker Compose v2 (v24+)
+- Git
 
-> Java and Python are only needed if you want to run services outside Docker.
+Java and Python are not needed -- everything runs in containers.
 
-### 1. Clone
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/dreyyfuss/learn-pulse.git
 cd learn-pulse
 ```
 
-### 2. Configure the AI service key
+### 2. Set the Groq API key
 
-The AI service needs one free API key:
-
-- **Groq** — powers the AI Study Assistant (RAG chat), course generation, and voice-to-text transcription via Whisper. Sign up at [console.groq.com](https://console.groq.com) — no credit card required.
+The AI features (RAG chat, course generation, voice transcription) require a free Groq API key. Get one at [console.groq.com](https://console.groq.com) -- no credit card required.
 
 ```bash
 cp apps/ai-service/.env.example apps/ai-service/.env
-# Set GROQ_API_KEY=<your-key> in apps/ai-service/.env
+# Edit apps/ai-service/.env and set GROQ_API_KEY=<your-key>
 ```
 
-> The rest of the platform starts fine without this key — AI chat, course generation, and voice transcription will return errors if the key is missing.
+The rest of the platform starts without this key; AI features will return errors if it is missing.
 
-### 3. Start the full stack
+### 3. Start the stack
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-The first build compiles three Spring Boot services — allow **5–8 minutes**. Subsequent starts use cached images and are fast.
+The first build compiles three Spring Boot services -- allow 5 to 8 minutes. Subsequent starts use cached images and are much faster.
 
-Wait for all three services to report ready:
+Wait until all three Spring Boot services log their ready message:
 
 ```
 user-service    | Started UserServiceApplication
@@ -124,7 +118,7 @@ cert-service    | Started CertServiceApplication
 
 ### 4. Open the app
 
-Navigate to [http://localhost](http://localhost). A seeded admin account is created automatically by Flyway on first boot:
+Go to [http://localhost](http://localhost). A seeded admin account is created automatically by Flyway on first boot:
 
 | Field | Value |
 |---|---|
@@ -133,91 +127,42 @@ Navigate to [http://localhost](http://localhost). A seeded admin account is crea
 
 ---
 
-## 🌐 Service URLs
+## Service URLs (local)
 
-| URL | Service |
+| URL | What it is |
 |---|---|
 | http://localhost | LearnPulse web app |
 | http://localhost:8090/dashboard/ | Traefik dashboard |
 | http://localhost:8085 | Kafka UI |
-| http://localhost:9001 | MinIO console (`minioadmin` / `minioadmin`) |
 | http://localhost:3000 | Grafana (`admin` / `admin`) |
 | http://localhost:9090 | Prometheus |
-| http://localhost:9000/healthz | AI service health check |
-
-**Direct service ports** (bypass Traefik — dev only):
-
-| Service | Port |
-|---|---|
-| User Service | 8081 |
-| Course Service | 8080 |
-| Certificate Service | 8082 |
-| AI Service | 9000 |
 
 ---
 
-## 🔑 Environment Variables
+## Environment Variables
 
-All services default to safe dev values. The only variable you must set is `GROQ_API_KEY` (see [Quick Start](#-quick-start)).
+All services default to safe dev values. The only variable you need to set manually is `GROQ_API_KEY`.
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `GROQ_API_KEY` | **Yes** | *(empty)* | AI chat, course generation, and transcription — free tier at console.groq.com |
-| `GROQ_LLM_MODEL` | No | `llama-3.3-70b-versatile` | Groq model used for chat and course generation |
-| `MAILGUN_API_KEY` | No | *(empty)* | Emails are silently skipped if blank |
-| `MAILGUN_DOMAIN` | No | `sandbox.mailgun.org` | Mailgun sending domain |
-| `JWT_SECRET` | No | dev default | **Change this in production** |
-| `SERVICE_AUTH_SECRET` | No | `change-me-in-dev` | Shared secret between Course Service and AI Service |
-
-Override any variable by setting it in your shell before running `docker compose`, or by adding it to a `.env` file at the project root.
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | AI chat, course generation, and transcription |
+| `GROQ_LLM_MODEL` | No | Defaults to `llama-3.3-70b-versatile` |
+| `MAILGUN_API_KEY` | No | Emails are silently skipped if blank |
+| `MAILGUN_DOMAIN` | No | Defaults to `sandbox.mailgun.org` |
+| `JWT_SECRET` | No | Change this in production |
 
 ---
 
-## 🚀 Try the Golden Path
-
-1. Register as an **instructor** → create a course (add a module and a lesson) → publish it.
-2. Register as a **learner** → find the course → enrol → start it → mark the lesson complete.
-3. Check **Kafka UI** — messages should appear on `user.enrolled`, `module.unlocked`, and `course.completed`.
-4. Check **MinIO** (`learnpulse` bucket → `certificates/`) — the PDF certificate should be there.
-
-**Try the AI Course Builder:**
-1. As an instructor → navigate to the Course Builder → describe your course topic in plain text.
-2. The system generates a complete course (modules + lesson articles + quizzes) asynchronously via Kafka.
-3. Poll `GET /api/instructor/courses/generate/{jobId}` until `status: COMPLETED`.
-4. The generated course appears in your instructor dashboard as a `DRAFT`, ready to review and publish.
-
-**Try learning streaks:**
-1. As a learner, mark any lesson complete.
-2. Call `GET /api/learner/streak` — `currentStreak` increments each day you complete at least one lesson.
-
----
-
-## 📂 Project Structure
-
-```
-apps/
-  user-service/     # Auth, users, admin
-  course-service/   # Courses, enrolments, progress, analytics
-  cert-service/     # Certificate generation & delivery
-  ai-service/       # RAG chat assistant
-  web/              # React frontend
-infrastructure/
-  traefik/          # Traefik config + rate-limit k6 test
-  kafka/            # Topic init script
-  mysql/            # DB init SQL
-  monitoring/       # Prometheus + Grafana provisioning
-docs/               # Detailed documentation (see below)
-docker-compose.dev.yml
-```
-
----
-
-## 📚 Documentation
+## Documentation
 
 | Document | Contents |
 |---|---|
-| [`docs/PRD.md`](docs/PRD.md) | Full product requirements — features, roles, business rules |
+| [`docs/PRD.md`](docs/PRD.md) | Full product requirements, features, roles, and business rules |
+| [`docs/decisions.md`](docs/decisions.md) | Key architectural decisions and the reasoning behind each |
 | [`docs/api-spec.md`](docs/api-spec.md) | Complete REST API reference |
-| [`docs/kafka-events.md`](docs/kafka-events.md) | Kafka topics, event payloads, consumer contracts |
-| [`docs/schema.md`](docs/schema.md) | Database schema — all tables, columns, constraints, and migration history |
-| [`docs/plan.md`](docs/plan.md) | Implementation plan and architectural decisions |
+| [`docs/kafka-events.md`](docs/kafka-events.md) | Kafka topics, event payloads, and consumer contracts |
+| [`docs/schema.md`](docs/schema.md) | Database schema for all services |
+| [`docs/sequence-diagrams.md`](docs/sequence-diagrams.md) | Sequence diagrams for key flows (auth, enrolment, certificate generation, AI assistant) |
+| [`docs/security.md`](docs/security.md) | Security model covering auth, file access, rate limiting, and idempotency |
+| [`docs/perf.md`](docs/perf.md) | Caching strategy, database indexes, and performance considerations |
+| [`docs/plan.md`](docs/plan.md) | Full delivery plan with phase breakdowns and acceptance criteria |

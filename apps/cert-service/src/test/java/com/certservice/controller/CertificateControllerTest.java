@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.eq;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
@@ -118,19 +120,14 @@ class CertificateControllerTest {
     }
 
     @Test
-    void download_authenticated_returnsPdfBytesWithCorrectHeaders() throws Exception {
-        byte[] pdfBytes = new byte[]{37, 80, 68, 70}; // %PDF magic bytes
+    void download_authenticated_redirectsToPresignedUrl() throws Exception {
+        String presignedUrl = "https://presigned.example.com/cert.pdf";
         when(certificateRepository.findByCertificateUuid(CERT_UUID)).thenReturn(Optional.of(cert));
-        when(s3Service.download(cert.getS3Key())).thenReturn(pdfBytes);
+        when(s3Service.presignedUrl(eq(cert.getS3Key()), any(Duration.class))).thenReturn(presignedUrl);
 
         mockMvc.perform(asLearner(get("/api/certificates/" + CERT_UUID + "/download")))
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        containsString("attachment")))
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        containsString(CERT_UUID)))
-                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-                .andExpect(content().bytes(pdfBytes));
+                .andExpect(status().isFound())
+                .andExpect(header().string(HttpHeaders.LOCATION, presignedUrl));
     }
 
     @Test
@@ -205,9 +202,9 @@ class CertificateControllerTest {
     @Test
     void download_s3Fails_propagatesException() {
         // No global @ControllerAdvice handles RuntimeException, so it propagates rather than mapping to 500.
-        // The important thing is it is NOT silently swallowed and the cert bytes are not returned.
+        // The important thing is it is NOT silently swallowed and the presigned URL is not returned.
         when(certificateRepository.findByCertificateUuid(CERT_UUID)).thenReturn(Optional.of(cert));
-        when(s3Service.download(anyString())).thenThrow(new RuntimeException("S3 unavailable"));
+        when(s3Service.presignedUrl(anyString(), any(Duration.class))).thenThrow(new RuntimeException("S3 unavailable"));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                 mockMvc.perform(asLearner(get("/api/certificates/" + CERT_UUID + "/download"))))

@@ -6,6 +6,11 @@ import com.certservice.models.Certificate;
 import com.certservice.repositories.CertificateRepository;
 import com.certservice.security.UserPrincipal;
 import com.certservice.service.S3Service;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Tag(name = "Certificates", description = "Certificate retrieval and download")
 @RestController
 @RequiredArgsConstructor
 public class CertificateController {
@@ -27,6 +33,11 @@ public class CertificateController {
     private final CertificateRepository certificateRepository;
     private final S3Service s3Service;
 
+    @Operation(summary = "List my certificates", description = "Returns all certificates issued to the authenticated learner")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Certificate list returned"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Authentication required")
+    })
     @GetMapping("/api/learner/certificates")
     @PreAuthorize("hasRole('LEARNER')")
     public ResponseEntity<ApiResponse<List<CertificateResponse>>> listMine(
@@ -47,6 +58,12 @@ public class CertificateController {
     }
 
 
+    @Operation(summary = "Download certificate", description = "Redirects to a presigned S3 URL for the certificate PDF")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "302", description = "Redirect to presigned download URL"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Authentication required"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Certificate not found")
+    })
     @GetMapping("/api/certificates/{uuid}/download")
     @PreAuthorize("hasRole('LEARNER')")
     public ResponseEntity<?> download(

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
 import ProgressBar from '../../components/ProgressBar';
-import Tag from '../../components/Tag';
 import useAuthStore from '../../store/authStore';
 import enrolmentService from '../../services/enrolmentService';
 import courseService from '../../services/courseService';
@@ -15,39 +15,62 @@ import { SkeletonCourseCard } from '../../components/Skeleton';
 import { categoryGradient } from '../../utils/categoryColor';
 
 export default function LearnDashboard() {
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const firstName = user?.firstName ?? 'there';
+  const navigate      = useNavigate();
+  const queryClient   = useQueryClient();
+  const { user }      = useAuthStore();
+  const firstName     = user?.firstName ?? 'there';
+  const { setStreak } = useStreakStore();
 
-  const [enrolments, setEnrolments]             = useState([]);
-  const [exploreCourses, setExploreCourses]     = useState([]);
-  const [loading, setLoading]                   = useState(true);
-  const [error, setError]                       = useState(null);
   const [showStartModal, setShowStartModal]     = useState(false);
   const [pendingEnrolment, setPendingEnrolment] = useState(null);
-  const [starting, setStarting]                 = useState(false);
   const [toast, setToast]                       = useState('');
-  const { streak, setStreak }                   = useStreakStore();
+
+  const { data: enrolData, isLoading: loadingEnrols, isError, error } = useQuery({
+    queryKey: ['enrolments', 'mine'],
+    queryFn:  () => enrolmentService.listMine(),
+  });
+
+  const { data: courseData, isLoading: loadingCourses } = useQuery({
+    queryKey: ['courses', 'list', { size: 100 }],
+    queryFn:  () => courseService.list({ size: 100 }),
+  });
+
+  const { data: streak } = useQuery({
+    queryKey: ['streaks', 'mine'],
+    queryFn:  () => streakService.getMine(),
+    select:   (d) => d.data ?? d,
+  });
 
   useEffect(() => {
-    Promise.all([enrolmentService.listMine(), courseService.list({ size: 100 }), streakService.getMine()])
-      .then(([enrolData, courseData, streakData]) => {
-        const items = enrolData.items ?? [];
-        setEnrolments(items);
-        const enrolledIds = new Set(items.map(e => e.courseId));
-        const avail = (courseData.items ?? []).filter(
-          c => c.status === 'PUBLISHED' && !enrolledIds.has(c.courseId ?? c.id)
-        );
-        setExploreCourses(avail);
-        setStreak(streakData.data ?? streakData);
-      })
-      .catch(e => setError(getErrorMessage(e)))
-      .finally(() => setLoading(false));
-  }, []);
+    if (streak) setStreak(streak);
+  }, [streak, setStreak]);
 
-  const inProgress     = enrolments.filter(e => e.startedAt != null && e.status === 'ACTIVE');
-  const notStarted     = enrolments.filter(e => e.startedAt == null && e.status === 'ACTIVE');
-  const completed      = enrolments.filter(e => e.status === 'COMPLETED');
+  const startMutation = useMutation({
+    mutationFn: (enrolmentId) => enrolmentService.startEnrolment(enrolmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrolments', 'mine'] });
+      navigate(`/learn/courses/${pendingEnrolment.courseId}/play`);
+      setShowStartModal(false);
+      setPendingEnrolment(null);
+    },
+    onError: (err) => {
+      setShowStartModal(false);
+      setPendingEnrolment(null);
+      setToast(getErrorMessage(err));
+      setTimeout(() => setToast(''), 3000);
+    },
+  });
+
+  const loading = loadingEnrols || loadingCourses;
+
+  const items          = enrolData?.items ?? [];
+  const enrolledIds    = new Set(items.map(e => e.courseId));
+  const exploreCourses = (courseData?.items ?? []).filter(
+    c => c.status === 'PUBLISHED' && !enrolledIds.has(c.courseId ?? c.id)
+  );
+  const inProgress     = items.filter(e => e.startedAt != null && e.status === 'ACTIVE');
+  const notStarted     = items.filter(e => e.startedAt == null && e.status === 'ACTIVE');
+  const completed      = items.filter(e => e.status === 'COMPLETED');
   const continueCourse = inProgress[0] ?? null;
 
   const openStartModal = (enrolment) => {
@@ -55,22 +78,9 @@ export default function LearnDashboard() {
     setShowStartModal(true);
   };
 
-  const confirmStart = async () => {
-    setStarting(true);
-    try {
-      await enrolmentService.startEnrolment(pendingEnrolment.enrolmentId);
-      navigate(`/learn/courses/${pendingEnrolment.courseId}/play`);
-    } catch (err) {
-      setShowStartModal(false);
-      setToast(getErrorMessage(err));
-      setTimeout(() => setToast(''), 3000);
-    } finally {
-      setStarting(false);
-      setPendingEnrolment(null);
-    }
-  };
-
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const today = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
 
   return (
     <div className="main">
@@ -83,14 +93,15 @@ export default function LearnDashboard() {
           ? `Continue ${continueCourse.courseTitle}.`
           : 'Browse the catalogue to find your next course.'}
       </p>
-      {error && (
+
+      {isError && (
         <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--coral-200)', color: 'var(--danger)', borderRadius: 8, padding: '12px 16px', marginBottom: 24, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="alert-circle" size={16} color="var(--danger)" />{error}
+          <Icon name="alert-circle" size={16} color="var(--danger)" />{getErrorMessage(error)}
         </div>
       )}
 
       {(() => {
-        const state = getStreakState(streak);
+        const state = getStreakState(streak ?? {});
         if (state === 'none') return null;
         const done = state === 'done';
         return (
@@ -107,6 +118,7 @@ export default function LearnDashboard() {
           </div>
         );
       })()}
+
       <div style={{ display: 'flex', gap: 10, marginBottom: 36 }}>
         {continueCourse ? (
           <button className="btn btn-primary" onClick={() => navigate(`/learn/courses/${continueCourse.courseId}/play`)}>
@@ -118,7 +130,7 @@ export default function LearnDashboard() {
 
       {loading && (
         <div className="course-grid">
-          {[0,1,2].map(i => <SkeletonCourseCard key={i} />)}
+          {[0, 1, 2].map(i => <SkeletonCourseCard key={i} />)}
         </div>
       )}
 
@@ -240,8 +252,8 @@ export default function LearnDashboard() {
               <button className="btn btn-secondary" onClick={() => { setShowStartModal(false); setPendingEnrolment(null); }}>
                 Cancel
               </button>
-              <button className="btn btn-pulse" onClick={confirmStart} disabled={starting}>
-                {starting ? 'Starting…' : 'Start course'}
+              <button className="btn btn-pulse" onClick={() => startMutation.mutate(pendingEnrolment.enrolmentId)} disabled={startMutation.isPending}>
+                {startMutation.isPending ? 'Starting…' : 'Start course'}
               </button>
             </>
           }

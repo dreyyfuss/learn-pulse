@@ -1,26 +1,39 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import RoleRoute from './RoleRoute';
 import AppLayout from '../components/AppLayout';
 import ErrorPage from '../components/ErrorPage';
-import LoginPage from '../features/auth/LoginPage';
-import RegisterPage from '../features/auth/RegisterPage';
-import LearnDashboard from '../features/learn/LearnDashboard';
-import CourseDiscovery from '../features/learn/CourseDiscovery';
-import CourseDetail from '../features/learn/CourseDetail';
-import CoursePlayer from '../features/learn/CoursePlayer';
-import MyCertificates from '../features/learn/MyCertificates';
-import TeachDashboard from '../features/teach/TeachDashboard';
-import MyCourses from '../features/teach/MyCourses';
-import CourseBuilder from '../features/teach/CourseBuilder';
-import CourseAnalytics from '../features/teach/CourseAnalytics';
-import AdminOverview from '../features/admin/AdminOverview';
-import UserManagement from '../features/admin/UserManagement';
-import CourseManagement from '../features/admin/CourseManagement';
-import EnrolmentManagement from '../features/admin/EnrolmentManagement';
-import NotFound from '../features/NotFound';
-import LandingPage from '../features/LandingPage';
-import ProfilePage from '../features/profile/ProfilePage';
+
+function page(importFn) {
+  const Component = lazy(importFn);
+  return function LazyPage(props) {
+    return (
+      <Suspense fallback={<div className="page-loader" />}>
+        <Component {...props} />
+      </Suspense>
+    );
+  };
+}
+
+const LandingPage         = page(() => import('../features/LandingPage'));
+const LoginPage           = page(() => import('../features/auth/LoginPage'));
+const RegisterPage        = page(() => import('../features/auth/RegisterPage'));
+const LearnDashboard      = page(() => import('../features/learn/LearnDashboard'));
+const CourseDiscovery     = page(() => import('../features/learn/CourseDiscovery'));
+const CourseDetail        = page(() => import('../features/learn/CourseDetail'));
+const CoursePlayer        = page(() => import('../features/learn/CoursePlayer'));
+const MyCertificates      = page(() => import('../features/learn/MyCertificates'));
+const TeachDashboard      = page(() => import('../features/teach/TeachDashboard'));
+const MyCourses           = page(() => import('../features/teach/MyCourses'));
+const CourseBuilder       = page(() => import('../features/teach/CourseBuilder'));
+const CourseAnalytics     = page(() => import('../features/teach/CourseAnalytics'));
+const AdminOverview       = page(() => import('../features/admin/AdminOverview'));
+const UserManagement      = page(() => import('../features/admin/UserManagement'));
+const CourseManagement    = page(() => import('../features/admin/CourseManagement'));
+const EnrolmentManagement = page(() => import('../features/admin/EnrolmentManagement'));
+const NotFound            = page(() => import('../features/NotFound'));
+const ProfilePage         = page(() => import('../features/profile/ProfilePage'));
 
 const router = createBrowserRouter([
   { index: true, element: <LandingPage /> },
