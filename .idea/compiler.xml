@@ -16,8 +16,8 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
         </processorPath>
-        <module name="course-service" />
         <module name="cert-service" />
+        <module name="course-service" />
         <module name="user-service" />
         <module name="demo" />
       </profile>

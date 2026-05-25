@@ -1,4 +1,7 @@
 /* LearnPulse — Component & layout styles */
+
+/* Suspense fallback — reserves full viewport height during lazy-chunk load */
+.page-loader { min-height: 100vh; background: var(--paper); }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); }
 

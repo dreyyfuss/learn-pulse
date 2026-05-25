@@ -1,23 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Icon from '../../components/Icon';
 import Notification from '../../components/Notification';
 import certificateService from '../../services/certificateService';
 
 export default function MyCertificates() {
-  const [certs, setCerts]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [toast, setToast]       = useState('');
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
-  useEffect(() => {
-    certificateService.listMine()
-      .then(data => setCerts(data.data ?? data))
-      .catch(() => setError('Could not load certificates.'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: certs = [], isLoading, isError } = useQuery({
+    queryKey: ['certificates', 'mine'],
+    queryFn: () => certificateService.listMine(),
+  });
 
   const handleDownload = async (certUuid) => {
     try {
@@ -27,15 +23,15 @@ export default function MyCertificates() {
     }
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="main">
       <p style={{ color: 'var(--ink-3)' }}>Loading certificates…</p>
     </div>
   );
 
-  if (error) return (
+  if (isError) return (
     <div className="main">
-      <p style={{ color: 'var(--danger)' }}>{error}</p>
+      <p style={{ color: 'var(--danger)' }}>Could not load certificates.</p>
     </div>
   );
 
@@ -56,8 +52,8 @@ export default function MyCertificates() {
           {certs.map(cert => (
             <div key={cert.certificateUuid} className="cert-card">
               <div className="cert-mark">✦</div>
-              {cert.courseName && <div className="cert-course">{cert.courseName}</div>}
-              {cert.learnerName && <div className="cert-learner">{cert.learnerName}</div>}
+              {cert.courseName   && <div className="cert-course">{cert.courseName}</div>}
+              {cert.learnerName  && <div className="cert-learner">{cert.learnerName}</div>}
               <div className="cert-id">{cert.certificateUuid}</div>
               <div className="cert-meta">
                 Issued {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString() : '—'}

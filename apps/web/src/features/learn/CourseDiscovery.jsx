@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { keepPreviousData } from '@tanstack/react-query';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import Notification from '../../components/Notification';
@@ -8,67 +10,58 @@ import courseService from '../../services/courseService';
 import enrolmentService from '../../services/enrolmentService';
 import { getErrorMessage } from '../../utils/errorMessages';
 import { SkeletonCourseCard } from '../../components/Skeleton';
+import useDebounce from '../../hooks/useDebounce';
 
 export default function CourseDiscovery() {
   const navigate = useNavigate();
-  const [courses, setCourses]       = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState('');
-  const [filter, setFilter]         = useState('All');
-  const [search, setSearch]         = useState('');
-  const [page, setPage]             = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const [filter, setFilter]             = useState('All');
+  const [search, setSearch]             = useState('');
+  const [page, setPage]                 = useState(0);
   const [requestModal, setRequestModal] = useState(null);
-  const [enrollCode, setEnrollCode] = useState('');
-  const [codeError, setCodeError]   = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]           = useState('');
+  const [enrollCode, setEnrollCode]     = useState('');
+  const [codeError, setCodeError]       = useState('');
+  const [toast, setToast]               = useState('');
 
-  useEffect(() => {
-    courseService.list({ size: 200 })
-      .then(data => {
-        const cats = [...new Set((data.items ?? []).map(c => c.category).filter(Boolean))];
-        setCategories(cats);
-      })
-      .catch(() => {});
-  }, []);
+  const debouncedSearch = useDebounce(search, search ? 350 : 0);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setLoading(true);
-      setError('');
+  const { data: categories = [] } = useQuery({
+    queryKey: ['courses', 'categories'],
+    queryFn:  () => courseService.list({ size: 200 }),
+    select:   (d) => [...new Set((d.items ?? []).map(c => c.category).filter(Boolean))],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: pageData, isLoading, isError, error } = useQuery({
+    queryKey: ['courses', 'list', { page, q: debouncedSearch.trim() || undefined, category: filter !== 'All' ? filter : undefined }],
+    queryFn: () => {
       const params = {
         size: 12,
         page,
-        ...(search.trim() ? { q: search.trim() } : {}),
+        ...(debouncedSearch.trim() ? { q: debouncedSearch.trim() } : {}),
         ...(filter !== 'All' ? { category: filter } : {}),
       };
-      courseService.list(params)
-        .then(data => {
-          setCourses(data.items ?? []);
-          setTotalPages(data.totalPages ?? 1);
-        })
-        .catch(err => setError(getErrorMessage(err)))
-        .finally(() => setLoading(false));
-    }, search ? 350 : 0);
-    return () => clearTimeout(t);
-  }, [search, filter, page]);
+      return courseService.list(params);
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  const handleRequest = async () => {
-    if (!enrollCode.trim()) { setCodeError('Please enter an enrolment code.'); return; }
-    setCodeError('');
-    setSubmitting(true);
-    try {
-      await enrolmentService.enrol(requestModal.id, enrollCode.trim());
+  const courses    = pageData?.items ?? [];
+  const totalPages = pageData?.totalPages ?? 1;
+
+  const enrolMutation = useMutation({
+    mutationFn: ({ courseId, code }) => enrolmentService.enrol(courseId, code),
+    onSuccess: (_, { courseId }) => {
       setRequestModal(null);
       setEnrollCode('');
-      navigate(`/learn/courses/${requestModal.id}`);
-    } catch (err) {
-      setCodeError(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
+      navigate(`/learn/courses/${courseId}`);
+    },
+    onError: (err) => setCodeError(getErrorMessage(err)),
+  });
+
+  const handleRequest = () => {
+    if (!enrollCode.trim()) { setCodeError('Please enter an enrolment code.'); return; }
+    setCodeError('');
+    enrolMutation.mutate({ courseId: requestModal.id, code: enrollCode.trim() });
   };
 
   return (
@@ -109,23 +102,23 @@ export default function CourseDiscovery() {
         </div>
       )}
 
-      {/* States */}
-      {loading && (
-        <div className="course-grid">{[0,1,2].map(i => <SkeletonCourseCard key={i} />)}</div>
+      {isLoading && (
+        <div className="course-grid">{[0, 1, 2].map(i => <SkeletonCourseCard key={i} />)}</div>
       )}
 
-      {error && (
-        <p style={{ color: 'var(--danger)', textAlign: 'center', padding: '60px 0' }}>{error}</p>
+      {isError && (
+        <p style={{ color: 'var(--danger)', textAlign: 'center', padding: '60px 0' }}>
+          {getErrorMessage(error)}
+        </p>
       )}
 
-      {!loading && !error && courses.length === 0 && (
+      {!isLoading && !isError && courses.length === 0 && (
         <p style={{ color: 'var(--ink-3)', textAlign: 'center', padding: '60px 0' }}>
           {!search && filter === 'All' ? 'No published courses yet.' : 'No courses match your search.'}
         </p>
       )}
 
-      {/* Course grid */}
-      {!loading && !error && courses.length > 0 && (
+      {!isLoading && !isError && courses.length > 0 && (
         <div className="course-grid">
           {courses.map(c => (
             <div key={c.id} className="course-card" onClick={() => navigate(`/learn/courses/${c.id}`)}>
@@ -137,23 +130,19 @@ export default function CourseDiscovery() {
                   </span>
                 )}
               </div>
-
               <div className="card-body">
                 <div className="card-eyebrow">{c.category || 'General'}</div>
                 <h3>{c.title}</h3>
                 <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0, lineHeight: 1.5 }}>
                   {c.description}
                 </p>
-
                 <div className="card-footer">
                   <button
                     className={`btn btn-sm ${c.visibility === 'PRIVATE' ? 'btn-secondary' : 'btn-primary'}`}
                     style={{ alignSelf: 'flex-start' }}
                     onClick={e => {
                       e.stopPropagation();
-                      c.visibility === 'PRIVATE'
-                        ? setRequestModal(c)
-                        : navigate(`/learn/courses/${c.id}`);
+                      c.visibility === 'PRIVATE' ? setRequestModal(c) : navigate(`/learn/courses/${c.id}`);
                     }}
                   >
                     {c.visibility === 'PRIVATE' ? 'Request access' : 'View course'}
@@ -167,7 +156,6 @@ export default function CourseDiscovery() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
-      {/* Private-course request modal */}
       {requestModal && (
         <Modal
           title="Enter enrolment code"
@@ -175,8 +163,8 @@ export default function CourseDiscovery() {
           actions={
             <>
               <button className="btn btn-secondary" onClick={() => { setRequestModal(null); setEnrollCode(''); setCodeError(''); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleRequest} disabled={submitting}>
-                {submitting ? 'Enrolling…' : 'Enrol'}
+              <button className="btn btn-primary" onClick={handleRequest} disabled={enrolMutation.isPending}>
+                {enrolMutation.isPending ? 'Enrolling…' : 'Enrol'}
               </button>
             </>
           }
