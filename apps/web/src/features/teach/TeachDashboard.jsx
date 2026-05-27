@@ -61,7 +61,7 @@ export default function TeachDashboard() {
 
   return (
     <div className="main">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 }}>
         <div>
           <div className="page-eyebrow">Instructor dashboard</div>
           <h1 className="page-title">{greeting()}, {firstName}.</h1>
@@ -89,7 +89,7 @@ export default function TeachDashboard() {
       )}
 
       {!error && (
-        <div className="table-wrap">
+        <div className="teach-courses-table table-wrap">
           <div className="table-row head" style={{ gridTemplateColumns: '1fr 110px 110px 110px 140px' }}>
             <div>Course</div><div>Status</div><div>Enrolled</div><div>Completion</div><div>Actions</div>
           </div>

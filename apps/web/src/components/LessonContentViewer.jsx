@@ -66,7 +66,7 @@ export default function LessonContentViewer({ courseId, moduleId, lessonId }) {
           <iframe
             src={url}
             title="Document viewer"
-            style={{ width: '100%', height: 600, border: 'none', borderRadius: 12 }}
+            style={{ width: '100%', height: 'min(600px, 60vh)', border: 'none', borderRadius: 12 }}
           />
           <div style={{ marginTop: 10 }}>
             <a href={url} download className="btn btn-secondary btn-sm">

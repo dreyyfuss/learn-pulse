@@ -5,7 +5,9 @@ import com.courseservice.dto.response.CreateCourseResponse;
 import com.courseservice.dto.response.PageResponse;
 import com.courseservice.enums.CourseStatus;
 import com.courseservice.enums.CourseVisibility;
+import com.courseservice.exception.CourseAlreadyStartedException;
 import com.courseservice.exception.NotOwnerException;
+import com.courseservice.exception.ResourceNotFoundException;
 import com.courseservice.services.CourseService;
 import com.courseservice.services.LessonService;
 import com.courseservice.services.ModuleService;
@@ -120,5 +122,56 @@ class CourseControllerTest {
                         .header("X-User-Roles", "INSTRUCTOR"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("NOT_OWNER"));
+    }
+
+    @Test
+    void updateCourse_asNonOwner_403() throws Exception {
+        UUID otherInstructor = UUID.fromString("f9e8d7c6-0000-0000-0000-000000000002");
+        when(courseService.update(eq(COURSE_ID), any(), any()))
+                .thenThrow(new NotOwnerException("You do not own this course."));
+
+        mockMvc.perform(patch("/api/courses/{id}", COURSE_ID)
+                        .header("X-User-Id", otherInstructor.toString())
+                        .header("X-User-Roles", "INSTRUCTOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Updated Title"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("NOT_OWNER"));
+    }
+
+    @Test
+    void publishCourse_alreadyPublished_409() throws Exception {
+        doThrow(new CourseAlreadyStartedException("Course is already published."))
+                .when(courseService).publish(eq(COURSE_ID), any());
+
+        mockMvc.perform(post("/api/courses/{id}/publish", COURSE_ID)
+                        .header("X-User-Id", INSTRUCTOR_ID.toString())
+                        .header("X-User-Roles", "INSTRUCTOR"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void getCourse_notFound_404() throws Exception {
+        when(courseService.get(eq(COURSE_ID)))
+                .thenThrow(new ResourceNotFoundException("Course not found"));
+
+        mockMvc.perform(get("/api/courses/{id}", COURSE_ID)
+                        .header("X-User-Id", INSTRUCTOR_ID.toString())
+                        .header("X-User-Roles", "INSTRUCTOR"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void createCourse_asLearner_403() throws Exception {
+        mockMvc.perform(post("/api/courses")
+                        .header("X-User-Id", INSTRUCTOR_ID.toString())
+                        .header("X-User-Roles", "LEARNER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Spring Boot 101","visibility":"PUBLIC"}
+                                """))
+                .andExpect(status().is4xxClientError());
     }
 }

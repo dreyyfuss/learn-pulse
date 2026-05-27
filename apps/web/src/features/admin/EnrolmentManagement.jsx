@@ -99,7 +99,7 @@ export default function EnrolmentManagement() {
       {/* Enrol form */}
       <div style={{ background: '#fff', border: '1px solid var(--rule)', borderRadius: 12, padding: '24px 28px', marginBottom: 32 }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, margin: '0 0 18px' }}>Enrol a learner</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 14, alignItems: 'end' }}>
+        <div className="enrol-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 14, alignItems: 'end' }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Learner</label>
             <div className="search-wrap" style={{ width: '100%' }}>
@@ -150,7 +150,7 @@ export default function EnrolmentManagement() {
 
       {/* Enrolments table */}
       <h2 className="section-head" style={{ marginTop: 0 }}>Recent enrolments</h2>
-      <div className="table-wrap">
+      <div className="enrolment-table table-wrap">
         <div className="table-row head" style={{ gridTemplateColumns: GRID }}>
           <div>Learner</div><div>Course</div><div>Status</div><div>Enrolled</div><div>Action</div>
         </div>
